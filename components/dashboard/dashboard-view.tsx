@@ -6,10 +6,11 @@ import { Calendar, CheckSquare, FileText, Pill, Users } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { roleLabel } from "@/lib/permissions/roles";
-import type { CareMode, MemberSummary, UserProfile } from "@/lib/types";
-import { calculateAge, formatPersonName } from "@/lib/utils";
+import type { CareMode, DashboardChanges, MemberSummary, UserProfile } from "@/lib/types";
+import { calculateAge, formatPersonName, relativeTime } from "@/lib/utils";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 
 type DashboardViewProps = {
@@ -25,6 +26,7 @@ const careModeVariant: Record<CareMode, "neutral" | "yellow" | "red"> = {
 export function DashboardView({ profile }: DashboardViewProps) {
   const { activeCircle } = useActiveCircle();
   const [members, setMembers] = useState<MemberSummary[]>([]);
+  const [changes, setChanges] = useState<DashboardChanges | null>(null);
 
   useEffect(() => {
     if (!activeCircle) {
@@ -33,16 +35,22 @@ export function DashboardView({ profile }: DashboardViewProps) {
 
     let cancelled = false;
 
-    const loadMembers = async () => {
-      const response = await fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`);
-      const result = (await response.json()) as { members?: MemberSummary[] };
+    const loadDashboard = async () => {
+      if (!activeCircle.person) return;
+      const [memberResponse, changesResponse] = await Promise.all([
+        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
+        fetch(`/api/dashboard/changes?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
+      ]);
+      const result = (await memberResponse.json()) as { members?: MemberSummary[] };
+      const changesResult = (await changesResponse.json()) as { changes?: DashboardChanges };
 
       if (!cancelled) {
         setMembers(result.members ?? []);
+        setChanges(changesResult.changes ?? null);
       }
     };
 
-    void loadMembers();
+    void loadDashboard();
 
     return () => {
       cancelled = true;
@@ -100,6 +108,13 @@ export function DashboardView({ profile }: DashboardViewProps) {
           <div className="sticky top-14 z-10 -mx-2 bg-neutral-50 px-2 py-2">
             <h2 className="text-lg font-semibold text-neutral-900">Welcome back, {profile.display_name}</h2>
           </div>
+          {changes && changes.totalTimelineEntries > 0 ? (
+            <ChangesCallout
+              changes={changes}
+              careCircleId={activeCircle.careCircle.id}
+              onCaughtUp={() => setChanges(null)}
+            />
+          ) : null}
           <EmptyState
             icon={FileText}
             title="No activity recorded yet."
@@ -130,6 +145,50 @@ export function DashboardView({ profile }: DashboardViewProps) {
           </Card>
         </aside>
       </div>
+    </div>
+  );
+}
+
+function ChangesCallout({
+  changes,
+  careCircleId,
+  onCaughtUp
+}: {
+  changes: DashboardChanges;
+  careCircleId: string;
+  onCaughtUp: () => void;
+}) {
+  const markCaughtUp = async () => {
+    await fetch("/api/dashboard/changes", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ careCircleId })
+    });
+    onCaughtUp();
+  };
+
+  return (
+    <div className="border-l-4 border-l-blue-600 bg-blue-50 p-4">
+      <h3 className="text-base font-semibold text-neutral-900">
+        Since your last visit ({relativeTime(changes.lastCaughtUpAt)}):
+      </h3>
+      <div className="mt-3 space-y-2 text-sm">
+        <Link href="/timeline" className="block font-medium text-blue-700 hover:underline">
+          {changes.totalTimelineEntries} new timeline entries
+        </Link>
+        <Link href="/tasks" className="block font-medium text-blue-700 hover:underline">
+          {changes.tasksCompleted} tasks completed / {changes.tasksMissed} tasks missed
+        </Link>
+        <Link href="/documents" className="block font-medium text-blue-700 hover:underline">
+          {changes.newDocuments} new documents
+        </Link>
+        <Link href="/notes" className="block font-medium text-blue-700 hover:underline">
+          {changes.notesAdded} notes added
+        </Link>
+      </div>
+      <Button className="mt-3" size="sm" variant="secondary" onClick={markCaughtUp}>
+        Mark as caught up
+      </Button>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { Bell, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import type { UserProfile } from "@/lib/types";
+import { useActiveCircle } from "./active-circle-provider";
 import { PersonSwitcher } from "./person-switcher";
 
 type TopBarProps = {
@@ -21,6 +23,28 @@ type TopBarProps = {
 
 export function TopBar({ profile, email }: TopBarProps) {
   const router = useRouter();
+  const { activeCircle } = useActiveCircle();
+  const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!activeCircle?.person || query.trim().length < 2) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      // Global search defaults to the active Person (spec: within-Person scope
+      // by default; the Search page has its own cross-circle toggle).
+      const params = new URLSearchParams({
+        q: query.trim(),
+        careCircleId: activeCircle.careCircle.id,
+        personId: activeCircle.person?.id ?? "",
+        all: "false"
+      });
+      router.push(`/search?${params.toString()}`);
+    }, 300);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeCircle?.careCircle.id, activeCircle?.person, activeCircle?.person?.id, query, router]);
 
   const signOut = async () => {
     const supabase = createClient();
@@ -38,13 +62,16 @@ export function TopBar({ profile, email }: TopBarProps) {
         <PersonSwitcher />
       </div>
       <div className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label="Search"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          <Search className="h-5 w-5" aria-hidden="true" />
-        </button>
+        <label className="hidden h-10 items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-500 focus-within:border-blue-600 md:flex">
+          <Search className="h-4 w-4" aria-hidden="true" />
+          <input
+            aria-label="Search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search"
+            className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:w-80"
+          />
+        </label>
         <button
           type="button"
           aria-label="Notifications"

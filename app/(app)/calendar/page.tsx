@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { AppointmentsView } from "@/components/appointments/appointments-view";
 
 export default function CalendarPage() {
-  return <StubPage title="Calendar" />;
+  return <AppointmentsView />;
 }
