@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { DocumentsView } from "@/components/documents/documents-view";
 
 export default function DocumentsPage() {
-  return <StubPage title="Documents" />;
+  return <DocumentsView />;
 }

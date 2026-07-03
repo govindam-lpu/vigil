@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { TimelineView } from "@/components/timeline/timeline-view";
 
 export default function TimelinePage() {
-  return <StubPage title="Timeline" />;
+  return <TimelineView />;
 }

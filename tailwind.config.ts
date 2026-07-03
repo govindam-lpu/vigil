@@ -13,7 +13,19 @@ const config: Config = {
       colors: {
         border: "hsl(var(--border))",
         background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))"
+        foreground: "hsl(var(--foreground))",
+        // DESIGN.md pins yellow-600 to #D97706 (Tailwind's amber). Align the
+        // scale so status yellows render on-token.
+        yellow: {
+          "50": "#FFFBEB",
+          "100": "#FEF3C7",
+          "500": "#F59E0B",
+          "600": "#D97706",
+          "700": "#B45309"
+        }
+      },
+      fontFamily: {
+        sans: ["var(--font-inter)", "ui-sans-serif", "system-ui", "sans-serif"]
       },
       fontSize: {
         xs: ["0.6875rem", { lineHeight: "1.4" }],
