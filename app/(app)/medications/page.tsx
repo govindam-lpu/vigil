@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { MedicationsView } from "@/components/medications/medications-view";
 
 export default function MedicationsPage() {
-  return <StubPage title="Medications" />;
+  return <MedicationsView />;
 }

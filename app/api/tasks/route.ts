@@ -7,6 +7,12 @@ import { createTimelineEvent } from "@/lib/api/timeline";
 import { createClient } from "@/lib/supabase/server";
 import type { HydratedTask, Task, TaskComment, TaskPriority, TaskStatus, UserProfile } from "@/lib/types";
 
+const recurrenceSchema = z.object({
+  frequency: z.enum(["daily", "weekly", "every_n_days", "monthly"]),
+  interval: z.number().int().positive().optional(),
+  day_of_week: z.number().int().min(0).max(6).optional()
+});
+
 const taskCreateSchema = z.object({
   careCircleId: z.string().uuid(),
   personId: z.string().uuid(),
@@ -15,7 +21,10 @@ const taskCreateSchema = z.object({
   assigneeId: z.string().uuid().nullable().optional(),
   dueDate: z.string().nullable().optional(),
   dueTime: z.string().nullable().optional(),
-  priority: z.enum(["low", "normal", "high", "urgent"]).default("normal")
+  priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+  recurrence: recurrenceSchema.nullable().optional(),
+  linkedObjectType: z.string().nullable().optional(),
+  linkedObjectId: z.string().uuid().nullable().optional()
 });
 
 const taskUpdateSchema = z.object({
@@ -29,6 +38,8 @@ const taskUpdateSchema = z.object({
   dueTime: z.string().nullable().optional(),
   priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
   status: z.enum(["open", "in_progress", "done", "missed", "cancelled"]).optional(),
+  recurrence: recurrenceSchema.nullable().optional(),
+  expectedUpdatedAt: z.string().optional(),
   archive: z.boolean().optional()
 });
 
@@ -106,9 +117,9 @@ export async function POST(request: NextRequest) {
         due_time: parsed.data.dueTime ?? null,
         priority: parsed.data.priority,
         status: "open",
-        recurrence: null,
-        linked_object_type: null,
-        linked_object_id: null,
+        recurrence: parsed.data.recurrence ?? null,
+        linked_object_type: parsed.data.linkedObjectType ?? null,
+        linked_object_id: parsed.data.linkedObjectId ?? null,
         tags: null,
         completed_at: null,
         completed_by: null,
@@ -146,6 +157,12 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid task update payload" }, { status: 400 });
   }
 
+  // Completion is allowed for caregiver+ (README) and runs through the complete_task
+  // RPC, which also spawns the next instance of a recurring task.
+  if (parsed.data.status === "done") {
+    return completeTask(parsed.data.id, parsed.data.careCircleId);
+  }
+
   const context = await getRequestContext(parsed.data.careCircleId, "contributor");
 
   if (context instanceof NextResponse) {
@@ -154,6 +171,28 @@ export async function PATCH(request: NextRequest) {
 
   try {
     const supabase = createClient();
+
+    // Optimistic-lock conflict detection (DESIGN conflict resolution). The client sends
+    // expectedUpdatedAt when editing the description; a mismatch means someone saved first.
+    if (parsed.data.expectedUpdatedAt) {
+      const { data: currentRow, error: currentError } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", parsed.data.id)
+        .eq("care_circle_id", parsed.data.careCircleId)
+        .eq("person_id", parsed.data.personId)
+        .is("deleted_at", null)
+        .maybeSingle();
+
+      if (currentError) {
+        throw new Error(currentError.message);
+      }
+
+      if (currentRow && (currentRow as Task).updated_at !== parsed.data.expectedUpdatedAt) {
+        return NextResponse.json({ conflict: true, current: currentRow as Task }, { status: 409 });
+      }
+    }
+
     const updatePayload: Partial<Task> = {};
 
     if (parsed.data.title !== undefined) updatePayload.title = parsed.data.title;
@@ -162,14 +201,11 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data.dueDate !== undefined) updatePayload.due_date = parsed.data.dueDate;
     if (parsed.data.dueTime !== undefined) updatePayload.due_time = parsed.data.dueTime;
     if (parsed.data.priority !== undefined) updatePayload.priority = parsed.data.priority as TaskPriority;
+    if (parsed.data.recurrence !== undefined) updatePayload.recurrence = parsed.data.recurrence;
     if (parsed.data.archive) updatePayload.deleted_at = new Date().toISOString();
 
     if (parsed.data.status !== undefined) {
       updatePayload.status = parsed.data.status as TaskStatus;
-      if (parsed.data.status === "done") {
-        updatePayload.completed_at = new Date().toISOString();
-        updatePayload.completed_by = context.userId;
-      }
       if (parsed.data.status === "missed") {
         updatePayload.missed_at = new Date().toISOString();
       }
@@ -203,19 +239,6 @@ export async function PATCH(request: NextRequest) {
       diff: updatePayload
     });
 
-    if (parsed.data.status === "done") {
-      await createTimelineEvent({
-        careCircleId: task.care_circle_id,
-        personId: task.person_id,
-        eventType: "task_completed",
-        title: `Task completed: ${task.title}`,
-        body: task.description,
-        authorId: context.userId,
-        linkedObjectType: "task",
-        linkedObjectId: task.id
-      });
-    }
-
     if (parsed.data.status === "missed") {
       await createTimelineEvent({
         careCircleId: task.care_circle_id,
@@ -228,6 +251,47 @@ export async function PATCH(request: NextRequest) {
         linkedObjectId: task.id
       });
     }
+
+    return NextResponse.json({ task });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}
+
+async function completeTask(taskId: string, careCircleId: string): Promise<NextResponse> {
+  const context = await getRequestContext(careCircleId, "caregiver");
+
+  if (context instanceof NextResponse) {
+    return context;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc("complete_task", { target_task_id: taskId });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const task = data as Task;
+    await createAuditLog({
+      careCircleId: task.care_circle_id,
+      actorId: context.userId,
+      actionType: "updated",
+      objectType: "task",
+      objectId: task.id,
+      diff: { status: "done" }
+    });
+    await createTimelineEvent({
+      careCircleId: task.care_circle_id,
+      personId: task.person_id,
+      eventType: "task_completed",
+      title: `Task completed: ${task.title}`,
+      body: task.description,
+      authorId: context.userId,
+      linkedObjectType: "task",
+      linkedObjectId: task.id
+    });
 
     return NextResponse.json({ task });
   } catch (error) {

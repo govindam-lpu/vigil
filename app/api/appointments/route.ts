@@ -5,13 +5,14 @@ import { getProfilesById } from "@/lib/api/records";
 import { getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createTimelineEvent } from "@/lib/api/timeline";
 import { createClient } from "@/lib/supabase/server";
-import type { Appointment, AppointmentStatus, AppointmentType, HydratedAppointment } from "@/lib/types";
+import type { Appointment, AppointmentStatus, AppointmentType, HydratedAppointment, Task } from "@/lib/types";
 
 const appointmentCreateSchema = z.object({
   careCircleId: z.string().uuid(),
   personId: z.string().uuid(),
   title: z.string().min(1),
   providerName: z.string().nullable().optional(),
+  providerContactId: z.string().uuid().nullable().optional(),
   scheduledAt: z.string().min(1),
   durationMinutes: z.number().int().nullable().optional(),
   appointmentType: z.enum(["medical", "legal", "financial", "home_service", "other"]).nullable().optional(),
@@ -28,6 +29,7 @@ const appointmentUpdateSchema = appointmentCreateSchema.partial().extend({
   personId: z.string().uuid(),
   status: z.enum(["scheduled", "completed", "cancelled", "missed"]).optional(),
   outcome: z.string().nullable().optional(),
+  followUpTasks: z.array(z.string()).optional(),
   archive: z.boolean().optional()
 });
 
@@ -94,6 +96,7 @@ export async function POST(request: NextRequest) {
         person_id: parsed.data.personId,
         title: parsed.data.title,
         provider_name: parsed.data.providerName ?? null,
+        provider_contact_id: parsed.data.providerContactId ?? null,
         location: parsed.data.location ?? null,
         address: parsed.data.address ?? null,
         appointment_type: parsed.data.appointmentType ?? "medical",
@@ -165,6 +168,7 @@ export async function PATCH(request: NextRequest) {
 
     if (parsed.data.title !== undefined) updatePayload.title = parsed.data.title;
     if (parsed.data.providerName !== undefined) updatePayload.provider_name = parsed.data.providerName;
+    if (parsed.data.providerContactId !== undefined) updatePayload.provider_contact_id = parsed.data.providerContactId;
     if (parsed.data.location !== undefined) updatePayload.location = parsed.data.location;
     if (parsed.data.address !== undefined) updatePayload.address = parsed.data.address;
     if (parsed.data.appointmentType !== undefined) updatePayload.appointment_type = parsed.data.appointmentType as AppointmentType | null;
@@ -212,6 +216,10 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
+    if (parsed.data.followUpTasks && parsed.data.followUpTasks.length > 0) {
+      await createFollowUpTasks(appointment, parsed.data.followUpTasks, context.userId);
+    }
+
     return NextResponse.json({ appointment });
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
@@ -246,5 +254,55 @@ async function maybeCreateAppointmentReminder(appointment: Appointment) {
 
   if (error) {
     throw new Error(error.message);
+  }
+}
+
+async function createFollowUpTasks(appointment: Appointment, lines: string[], actorId: string) {
+  const titles = lines.map((line) => line.trim()).filter(Boolean);
+
+  if (titles.length === 0) {
+    return;
+  }
+
+  const supabase = createClient();
+  for (const title of titles) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .insert({
+        care_circle_id: appointment.care_circle_id,
+        person_id: appointment.person_id,
+        title,
+        description: null,
+        assignee_id: null,
+        assigned_by: actorId,
+        due_date: null,
+        due_time: null,
+        priority: "normal",
+        status: "open",
+        recurrence: null,
+        linked_object_type: "appointment",
+        linked_object_id: appointment.id,
+        tags: null,
+        completed_at: null,
+        completed_by: null,
+        missed_at: null,
+        deleted_at: null
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const task = data as Task;
+    await createAuditLog({
+      careCircleId: appointment.care_circle_id,
+      actorId,
+      actionType: "created",
+      objectType: "task",
+      objectId: task.id,
+      diff: { title: task.title, linked_object_type: "appointment", linked_object_id: appointment.id }
+    });
   }
 }

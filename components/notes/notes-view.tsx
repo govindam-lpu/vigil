@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
+import { ConflictModal } from "@/components/ui/conflict-modal";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
-import type { HydratedNote } from "@/lib/types";
+import type { HydratedNote, Note } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
 export function NotesView() {
@@ -94,6 +95,9 @@ export function NotesView() {
 
 function NoteCard({ note, currentUserId, currentRole, onReload }: { note: HydratedNote; currentUserId: string; currentRole: string; onReload: () => Promise<void> }) {
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.content);
+  const [conflict, setConflict] = useState<Note | null>(null);
   const canEdit = note.author_id === currentUserId;
   const canPin = currentRole === "owner" || currentRole === "coordinator";
   const hiddenPrivate = note.is_private && note.author_id !== currentUserId;
@@ -107,6 +111,27 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
     await onReload();
   };
 
+  const saveContent = async (force: boolean, override?: string) => {
+    const content = override ?? draft;
+    const body: { id: string; careCircleId: string; personId: string; content: string; expectedUpdatedAt?: string } = {
+      id: note.id,
+      careCircleId: note.care_circle_id,
+      personId: note.person_id,
+      content
+    };
+    if (!force) body.expectedUpdatedAt = note.updated_at;
+    const response = await fetch("/api/notes", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (response.status === 409) {
+      const json = (await response.json()) as { current?: Note };
+      if (json.current) setConflict(json.current);
+      return;
+    }
+    if (response.ok) {
+      setEditing(false);
+      await onReload();
+    }
+  };
+
   return (
     <article className="rounded-lg border border-neutral-200 bg-white p-4">
       <div className="flex items-center gap-2">
@@ -117,18 +142,71 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
         </div>
         {note.is_private ? <Badge variant="neutral"><Lock className="mr-1 h-3 w-3" />Private</Badge> : null}
         {(canEdit || canPin) && !hiddenPrivate ? (
-          <select className="h-8 w-8 rounded-md border border-neutral-200 bg-white" value="" onChange={(event) => { const value = event.target.value; if (value === "archive") void update({ archive: true }); if (value === "pin") void update({ pinnedInCrisis: !note.pinned_in_crisis }); event.target.value = ""; }}>
+          <select className="h-8 w-8 rounded-md border border-neutral-200 bg-white" value="" onChange={(event) => { const value = event.target.value; if (value === "edit") { setDraft(note.content); setEditing(true); } if (value === "archive") void update({ archive: true }); if (value === "pin") void update({ pinnedInCrisis: !note.pinned_in_crisis }); event.target.value = ""; }}>
             <option value="">...</option>
+            {canEdit ? <option value="edit">Edit</option> : null}
             {canPin ? <option value="pin">{note.pinned_in_crisis ? "Unpin from Crisis" : "Pin to Crisis"}</option> : null}
             {canEdit ? <option value="archive">Delete</option> : null}
           </select>
         ) : null}
       </div>
-      <p className={`mt-3 whitespace-pre-wrap text-base text-neutral-700 ${expanded ? "" : "line-clamp-3"}`}>{note.content}</p>
-      {note.content.length > 180 ? (
-        <button className="mt-2 text-sm font-medium text-blue-600 hover:underline" onClick={() => setExpanded((value) => !value)}>
-          {expanded ? "Show less" : "Show more"}
-        </button>
+      {editing ? (
+        <div className="mt-3">
+          <textarea
+            className="min-h-28 w-full rounded border border-neutral-300 p-3 text-base"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+          />
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={() => saveContent(false)} disabled={!draft.trim()}>
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setEditing(false);
+                setDraft(note.content);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p className={`mt-3 whitespace-pre-wrap text-base text-neutral-700 ${expanded ? "" : "line-clamp-3"}`}>{note.content}</p>
+          {note.content.length > 180 ? (
+            <button className="mt-2 text-sm font-medium text-blue-600 hover:underline" onClick={() => setExpanded((value) => !value)}>
+              {expanded ? "Show less" : "Show more"}
+            </button>
+          ) : null}
+        </>
+      )}
+
+      {conflict ? (
+        <ConflictModal
+          fieldLabel="Note"
+          yourValue={draft}
+          theirValue={conflict.content}
+          savedByLabel={`Current version (saved ${formatDateTime(conflict.updated_at)})`}
+          onKeepTheirs={() => {
+            setDraft(conflict.content);
+            setConflict(null);
+            setEditing(false);
+            void onReload();
+          }}
+          onUseMine={() => {
+            void saveContent(true);
+            setConflict(null);
+          }}
+          onMerge={(merged) => {
+            setDraft(merged);
+            void saveContent(true, merged);
+            setConflict(null);
+          }}
+          onClose={() => setConflict(null)}
+        />
       ) : null}
     </article>
   );

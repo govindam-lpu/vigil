@@ -29,9 +29,17 @@ export type TimelineEventType =
   | "appointment_created"
   | "document_uploaded"
   | "note_created"
+  | "check_in"
+  | "medication_changed"
+  | "observation_logged"
   | "member_joined"
   | "system";
-export type ReminderType = "task_due" | "appointment_upcoming" | "document_expiring" | "custom";
+export type ReminderType =
+  | "task_due"
+  | "appointment_upcoming"
+  | "medication_refill"
+  | "document_expiring"
+  | "custom";
 export type ReminderStatus = "pending" | "sent" | "acknowledged" | "snoozed" | "expired";
 export type DocumentType =
   | "medical_record"
@@ -42,6 +50,29 @@ export type DocumentType =
   | "care_plan"
   | "correspondence"
   | "other";
+
+// Phase 2 — Care Operations
+export type NoteType = "standard" | "handoff";
+export type ContactRole =
+  | "doctor"
+  | "specialist"
+  | "pharmacist"
+  | "attorney"
+  | "insurance"
+  | "caregiver"
+  | "neighbor"
+  | "other";
+export type MedicationForm = "pill" | "liquid" | "patch" | "injection" | "inhaler" | "other";
+export type MedicationStatus = "active" | "paused" | "discontinued";
+export type CheckInStatus = "well" | "concerning" | "urgent";
+export type ObservationType = "symptom" | "vital" | "behavior" | "mood" | "other";
+export type ObservationSeverity = "mild" | "moderate" | "severe";
+export type EscalationTriggerType =
+  | "task_missed"
+  | "reminder_unacknowledged"
+  | "checkin_skipped"
+  | "custom";
+export type EscalationAction = "notify_role" | "notify_user" | "notify_emergency_contact";
 
 export type UserProfile = {
   id: string;
@@ -95,6 +126,8 @@ export type Membership = {
   relationship_label: string | null;
   expires_at: string | null;
   last_caught_up_at: string | null;
+  original_role: Role | null;
+  elevation_expires_at: string | null;
   created_at: string;
 };
 
@@ -171,6 +204,7 @@ export type Appointment = {
   person_id: string;
   title: string;
   provider_name: string | null;
+  provider_contact_id: string | null;
   location: string | null;
   address: string | null;
   appointment_type: AppointmentType | null;
@@ -192,6 +226,7 @@ export type Note = {
   author_id: string;
   content: string;
   is_private: boolean;
+  note_type: NoteType;
   linked_object_type: string | null;
   linked_object_id: string | null;
   pinned_in_crisis: boolean;
@@ -271,6 +306,124 @@ export type TaskComment = {
   created_at: string;
 };
 
+export type Contact = {
+  id: string;
+  care_circle_id: string;
+  person_id: string;
+  name: string;
+  organization: string | null;
+  role: ContactRole | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  npi: string | null;
+  notes: string | null;
+  is_primary: boolean;
+  is_emergency_contact: boolean;
+  pinned_in_crisis: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Medication = {
+  id: string;
+  care_circle_id: string;
+  person_id: string;
+  name: string;
+  generic_name: string | null;
+  brand_name: string | null;
+  dosage: string | null;
+  unit: string | null;
+  form: MedicationForm | null;
+  route: string | null;
+  frequency: string;
+  schedule: string[] | null;
+  prescriber_id: string | null;
+  pharmacy_id: string | null;
+  rx_number: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+  refills_remaining: number | null;
+  next_refill_date: string | null;
+  instructions: string | null;
+  side_effects_to_watch: string | null;
+  interactions: string | null;
+  status: MedicationStatus;
+  discontinued_reason: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MedicationAdministrationLog = {
+  id: string;
+  medication_id: string;
+  care_circle_id: string;
+  person_id: string;
+  administered_by: string;
+  administered_at: string;
+  notes: string | null;
+  created_at: string;
+};
+
+export type CheckIn = {
+  id: string;
+  care_circle_id: string;
+  person_id: string;
+  author_id: string;
+  status: CheckInStatus;
+  notes: string | null;
+  occurred_at: string;
+  created_at: string;
+};
+
+export type Observation = {
+  id: string;
+  care_circle_id: string;
+  person_id: string;
+  author_id: string;
+  observation_type: ObservationType;
+  body: string;
+  severity: ObservationSeverity | null;
+  occurred_at: string;
+  linked_object_type: string | null;
+  linked_object_id: string | null;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type EscalationRule = {
+  id: string;
+  care_circle_id: string;
+  trigger_type: EscalationTriggerType | null;
+  trigger_object_id: string | null;
+  trigger_condition: Json | null;
+  action: EscalationAction | null;
+  target_ids: string[] | null;
+  target_role: Role | null;
+  message: string | null;
+  is_active: boolean;
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CrisisModeSession = {
+  id: string;
+  care_circle_id: string;
+  activated_by: string;
+  activated_at: string;
+  deactivated_by: string | null;
+  deactivated_at: string | null;
+  reason: string | null;
+  summary: string | null;
+  members_notified: string[] | null;
+  created_at: string;
+};
+
 export type SearchResult = {
   result_type: "timeline" | "task" | "appointment" | "document" | "note";
   object_id: string;
@@ -313,6 +466,23 @@ export type HydratedNote = Note & {
 export type HydratedTimelineEvent = TimelineEvent & {
   author: UserProfile | null;
   linked_title: string | null;
+};
+
+export type HydratedMedication = Medication & {
+  prescriber: Contact | null;
+  pharmacy: Contact | null;
+};
+
+export type HydratedMedicationAdministration = MedicationAdministrationLog & {
+  administeredByProfile: UserProfile | null;
+};
+
+export type HydratedCheckIn = CheckIn & {
+  author: UserProfile | null;
+};
+
+export type HydratedObservation = Observation & {
+  author: UserProfile | null;
 };
 
 export type CircleSummary = {

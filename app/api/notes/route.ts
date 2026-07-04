@@ -24,6 +24,7 @@ const noteUpdateSchema = z.object({
   content: z.string().min(1).optional(),
   isPrivate: z.boolean().optional(),
   pinnedInCrisis: z.boolean().optional(),
+  expectedUpdatedAt: z.string().optional(),
   archive: z.boolean().optional()
 });
 
@@ -143,6 +144,11 @@ export async function PATCH(request: NextRequest) {
 
     if (parsed.data.pinnedInCrisis !== undefined && !roleMeetsMinimum(context.membership.role, "coordinator")) {
       return NextResponse.json({ error: "Only coordinators can pin notes to crisis." }, { status: 403 });
+    }
+
+    // Optimistic-lock conflict detection on content edits (DESIGN: conflict resolution).
+    if (parsed.data.expectedUpdatedAt && parsed.data.content !== undefined && note.updated_at !== parsed.data.expectedUpdatedAt) {
+      return NextResponse.json({ conflict: true, current: note }, { status: 409 });
     }
 
     const updatePayload: Partial<Note> = {};

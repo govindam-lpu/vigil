@@ -1,0 +1,515 @@
+"use client";
+
+import type { ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Star, UserCog } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ConflictModal } from "@/components/ui/conflict-modal";
+import { LoadError } from "@/components/ui/load-error";
+import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { roleLabel } from "@/lib/permissions/roles";
+import type { Contact, ContactRole, MemberSummary, Person } from "@/lib/types";
+import { formatDateTime } from "@/lib/utils";
+
+const CONTACT_ROLES: ContactRole[] = [
+  "doctor",
+  "specialist",
+  "pharmacist",
+  "attorney",
+  "insurance",
+  "caregiver",
+  "neighbor",
+  "other"
+];
+
+type PersonFieldDef = {
+  apiField: string;
+  label: string;
+  type: "text" | "date" | "textarea" | "list";
+  toRaw: (person: Person) => string;
+  toPayload: (raw: string) => string | string[] | null;
+};
+
+const PERSON_FIELDS: PersonFieldDef[] = [
+  { apiField: "firstName", label: "First name", type: "text", toRaw: (p) => p.first_name, toPayload: (raw) => raw },
+  { apiField: "lastName", label: "Last name", type: "text", toRaw: (p) => p.last_name, toPayload: (raw) => raw },
+  { apiField: "preferredName", label: "Preferred name", type: "text", toRaw: (p) => p.preferred_name ?? "", toPayload: (raw) => raw.trim() || null },
+  { apiField: "pronouns", label: "Pronouns", type: "text", toRaw: (p) => p.pronouns ?? "", toPayload: (raw) => raw.trim() || null },
+  { apiField: "dateOfBirth", label: "Date of birth", type: "date", toRaw: (p) => p.date_of_birth ?? "", toPayload: (raw) => raw || null },
+  { apiField: "bloodType", label: "Blood type", type: "text", toRaw: (p) => p.blood_type ?? "", toPayload: (raw) => raw.trim() || null },
+  {
+    apiField: "primaryDiagnoses",
+    label: "Primary diagnoses",
+    type: "list",
+    toRaw: (p) => (p.primary_diagnoses ?? []).join(", "),
+    toPayload: (raw) => splitList(raw)
+  },
+  { apiField: "allergies", label: "Allergies", type: "list", toRaw: (p) => (p.allergies ?? []).join(", "), toPayload: (raw) => splitList(raw) },
+  { apiField: "aboutNote", label: "About", type: "textarea", toRaw: (p) => p.about_note ?? "", toPayload: (raw) => raw.trim() || null }
+];
+
+export function PeopleView() {
+  const { activeCircle } = useActiveCircle();
+  const [members, setMembers] = useState<MemberSummary[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [person, setPerson] = useState<Person | null>(activeCircle?.person ?? null);
+  const [error, setError] = useState<string | null>(null);
+
+  const role = activeCircle?.membership.role;
+  const canEditProfile = role === "owner" || role === "coordinator";
+  const canWriteContacts = role === "owner" || role === "coordinator" || role === "contributor";
+
+  const load = async (isCancelled?: () => boolean) => {
+    if (!activeCircle?.person) return;
+    try {
+      setError(null);
+      const [memberResponse, contactResponse, personResponse] = await Promise.all([
+        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
+        fetch(`/api/contacts?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
+        fetch(`/api/persons?careCircleId=${activeCircle.careCircle.id}`)
+      ]);
+      if (!memberResponse.ok || !contactResponse.ok || !personResponse.ok) throw new Error("Request failed");
+      const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
+      const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
+      const personJson = (await personResponse.json()) as { person?: Person | null };
+      if (isCancelled?.()) return;
+      setMembers(memberJson.members ?? []);
+      setContacts(contactJson.contacts ?? []);
+      if (personJson.person) setPerson(personJson.person);
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load this care circle. Check your connection and try again.");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    void load(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
+
+  if (!activeCircle?.person) return null;
+
+  return (
+    <div className="mx-auto max-w-[1280px] p-6">
+      <div className="sticky top-14 z-20 -mx-2 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
+        <h1 className="text-lg font-semibold text-neutral-900">People &amp; Roles</h1>
+        <p className="text-sm text-neutral-500">Members of this care circle, the person&apos;s profile, and the care team.</p>
+      </div>
+
+      {error ? (
+        <div className="mt-5">
+          <LoadError message={error} onRetry={() => void load()} />
+        </div>
+      ) : null}
+
+      <div className="mt-5 grid gap-6 lg:grid-cols-2">
+        {person ? (
+          <PersonProfileSection
+            person={person}
+            careCircleId={activeCircle.careCircle.id}
+            canEdit={canEditProfile}
+            onPersonChange={setPerson}
+            onReload={load}
+          />
+        ) : null}
+        <MembersSection members={members} />
+      </div>
+
+      <ContactsSection
+        contacts={contacts}
+        careCircleId={activeCircle.careCircle.id}
+        personId={activeCircle.person.id}
+        canWrite={canWriteContacts}
+        onReload={load}
+      />
+    </div>
+  );
+}
+
+function PersonProfileSection({
+  person,
+  careCircleId,
+  canEdit,
+  onPersonChange,
+  onReload
+}: {
+  person: Person;
+  careCircleId: string;
+  canEdit: boolean;
+  onPersonChange: (person: Person) => void;
+  onReload: () => Promise<void>;
+}) {
+  const [conflict, setConflict] = useState<{ def: PersonFieldDef; yourRaw: string; current: Person } | null>(null);
+
+  const patchPerson = async (payload: Record<string, unknown>) =>
+    fetch("/api/persons", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: person.id, careCircleId, ...payload })
+    });
+
+  const saveField = async (def: PersonFieldDef, raw: string) => {
+    if ((def.apiField === "firstName" || def.apiField === "lastName") && !raw.trim()) return;
+    const response = await patchPerson({ [def.apiField]: def.toPayload(raw), expectedUpdatedAt: person.updated_at });
+    if (response.status === 409) {
+      const json = (await response.json()) as { current?: Person };
+      if (json.current) setConflict({ def, yourRaw: raw, current: json.current });
+      return;
+    }
+    if (response.ok) {
+      const json = (await response.json()) as { person?: Person };
+      if (json.person) onPersonChange(json.person);
+    }
+  };
+
+  const resolveWith = async (raw: string) => {
+    if (!conflict) return;
+    const response = await patchPerson({ [conflict.def.apiField]: conflict.def.toPayload(raw) });
+    if (response.ok) {
+      const json = (await response.json()) as { person?: Person };
+      if (json.person) onPersonChange(json.person);
+    }
+    setConflict(null);
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <h2 className="text-md font-semibold text-neutral-900">Person profile</h2>
+        {!canEdit ? <Badge variant="neutral">Read only</Badge> : null}
+      </div>
+      <div className="mt-3 space-y-1">
+        {PERSON_FIELDS.map((def) => (
+          <ProfileField key={def.apiField} def={def} person={person} canEdit={canEdit} onSave={(raw) => saveField(def, raw)} />
+        ))}
+      </div>
+
+      {conflict ? (
+        <ConflictModal
+          fieldLabel={conflict.def.label}
+          yourValue={conflict.yourRaw}
+          theirValue={conflict.def.toRaw(conflict.current)}
+          savedByLabel={`Current version (saved ${formatDateTime(conflict.current.updated_at)})`}
+          onKeepTheirs={async () => {
+            onPersonChange(conflict.current);
+            setConflict(null);
+            await onReload();
+          }}
+          onUseMine={() => resolveWith(conflict.yourRaw)}
+          onMerge={(value) => resolveWith(value)}
+          onClose={() => setConflict(null)}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
+function ProfileField({ def, person, canEdit, onSave }: { def: PersonFieldDef; person: Person; canEdit: boolean; onSave: (raw: string) => void }) {
+  const raw = def.toRaw(person);
+
+  if (!canEdit) {
+    return (
+      <div className="flex justify-between gap-3 border-b border-neutral-100 py-2 text-sm">
+        <span className="text-neutral-500">{def.label}</span>
+        <span className="text-right text-neutral-900">{raw || "—"}</span>
+      </div>
+    );
+  }
+
+  return (
+    <label className="block border-b border-neutral-100 py-2">
+      <span className="mb-1 block text-xs font-medium text-neutral-500">{def.label}</span>
+      {def.type === "textarea" ? (
+        <textarea
+          className="min-h-16 w-full rounded border border-neutral-300 p-2 text-sm"
+          defaultValue={raw}
+          onBlur={(event) => {
+            if (event.target.value !== raw) onSave(event.target.value);
+          }}
+        />
+      ) : (
+        <Input
+          type={def.type === "date" ? "date" : "text"}
+          defaultValue={raw}
+          placeholder={def.type === "list" ? "Comma separated" : undefined}
+          onBlur={(event) => {
+            if (event.target.value !== raw) onSave(event.target.value);
+          }}
+        />
+      )}
+    </label>
+  );
+}
+
+function MembersSection({ members }: { members: MemberSummary[] }) {
+  return (
+    <Card>
+      <h2 className="text-md font-semibold text-neutral-900">Members</h2>
+      <div className="mt-3 space-y-3">
+        {members.map((member) => (
+          <div key={member.membership.id} className="flex items-center gap-3">
+            <Avatar name={member.profile?.display_name ?? "Unknown"} src={member.profile?.avatar_url ?? null} className="h-9 w-9" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-neutral-900">{member.profile?.display_name ?? "Unknown member"}</p>
+              <p className="text-xs text-neutral-500">
+                {member.membership.relationship_label ? `${member.membership.relationship_label} · ` : ""}
+                {roleLabel(member.membership.role)}
+              </p>
+            </div>
+            {member.membership.elevation_expires_at ? (
+              <Badge variant="yellow">
+                <UserCog className="mr-1 h-3 w-3" aria-hidden="true" />
+                Temp elevation
+              </Badge>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function ContactsSection({
+  contacts,
+  careCircleId,
+  personId,
+  canWrite,
+  onReload
+}: {
+  contacts: Contact[];
+  careCircleId: string;
+  personId: string;
+  canWrite: boolean;
+  onReload: () => Promise<void>;
+}) {
+  const [modalContact, setModalContact] = useState<Contact | "new" | null>(null);
+
+  const update = async (contact: Contact, payload: Record<string, unknown>) => {
+    await fetch("/api/contacts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: contact.id, careCircleId, personId, ...payload })
+    });
+    await onReload();
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-200 bg-white">
+      <div className="flex items-center justify-between border-b border-neutral-200 p-4">
+        <div>
+          <h2 className="text-md font-semibold text-neutral-900">Care Team Contacts</h2>
+          <p className="text-sm text-neutral-500">Doctors, pharmacies, and others outside the circle.</p>
+        </div>
+        {canWrite ? (
+          <Button size="sm" onClick={() => setModalContact("new")}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Contact
+          </Button>
+        ) : null}
+      </div>
+
+      {contacts.length === 0 ? (
+        <p className="p-4 text-sm text-neutral-600">No contacts yet. Add doctors, pharmacies, and other care-team members.</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-sm">
+            <thead>
+              <tr className="border-b border-neutral-200 text-left text-xs font-semibold text-neutral-500">
+                <th className="px-4 py-2">Name</th>
+                <th className="px-4 py-2">Organization</th>
+                <th className="px-4 py-2">Role</th>
+                <th className="px-4 py-2">Phone</th>
+                <th className="px-4 py-2">Email</th>
+                <th className="px-4 py-2">Emergency</th>
+                {canWrite ? <th className="px-4 py-2" /> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {contacts.map((contact) => (
+                <tr key={contact.id} className="border-b border-neutral-100">
+                  <td className="px-4 py-2 font-medium text-neutral-900">{contact.name}</td>
+                  <td className="px-4 py-2 text-neutral-600">{contact.organization || "—"}</td>
+                  <td className="px-4 py-2">{contact.role ? <Badge variant="neutral">{labelize(contact.role)}</Badge> : "—"}</td>
+                  <td className="px-4 py-2 text-neutral-600">{contact.phone || "—"}</td>
+                  <td className="px-4 py-2 text-neutral-600">{contact.email || "—"}</td>
+                  <td className="px-4 py-2">
+                    {contact.is_emergency_contact ? <Star className="h-4 w-4 fill-red-500 text-red-500" aria-label="Emergency contact" /> : null}
+                  </td>
+                  {canWrite ? (
+                    <td className="px-4 py-2 text-right">
+                      <select
+                        aria-label="Contact actions"
+                        className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-neutral-500"
+                        value=""
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (value === "edit") setModalContact(contact);
+                          if (value === "delete") void update(contact, { archive: true });
+                          if (value === "pin") void update(contact, { pinnedInCrisis: !contact.pinned_in_crisis });
+                          event.target.value = "";
+                        }}
+                      >
+                        <option value="">…</option>
+                        <option value="edit">Edit</option>
+                        <option value="pin">{contact.pinned_in_crisis ? "Unpin from Crisis" : "Pin to Crisis"}</option>
+                        <option value="delete">Delete</option>
+                      </select>
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {modalContact ? (
+        <ContactModal
+          careCircleId={careCircleId}
+          personId={personId}
+          contact={modalContact === "new" ? null : modalContact}
+          onClose={() => setModalContact(null)}
+          onSaved={async () => {
+            setModalContact(null);
+            await onReload();
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function ContactModal({
+  careCircleId,
+  personId,
+  contact,
+  onClose,
+  onSaved
+}: {
+  careCircleId: string;
+  personId: string;
+  contact: Contact | null;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState(contact?.name ?? "");
+  const [organization, setOrganization] = useState(contact?.organization ?? "");
+  const [role, setRole] = useState<ContactRole | "">(contact?.role ?? "");
+  const [phone, setPhone] = useState(contact?.phone ?? "");
+  const [email, setEmail] = useState(contact?.email ?? "");
+  const [address, setAddress] = useState(contact?.address ?? "");
+  const [npi, setNpi] = useState(contact?.npi ?? "");
+  const [notes, setNotes] = useState(contact?.notes ?? "");
+  const [isEmergency, setIsEmergency] = useState(contact?.is_emergency_contact ?? false);
+  const [isPrimary, setIsPrimary] = useState(contact?.is_primary ?? false);
+
+  const save = async () => {
+    const payload = {
+      careCircleId,
+      personId,
+      name,
+      organization: organization || null,
+      role: role || null,
+      phone: phone || null,
+      email: email || null,
+      address: address || null,
+      npi: npi || null,
+      notes: notes || null,
+      isEmergencyContact: isEmergency,
+      isPrimary
+    };
+    const response = await fetch("/api/contacts", {
+      method: contact ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(contact ? { id: contact.id, ...payload } : payload)
+    });
+    if (response.ok) await onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5">
+        <h2 className="text-md font-semibold text-neutral-900">{contact ? "Edit Contact" : "Add Contact"}</h2>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <Field label="Name (required)">
+            <Input value={name} onChange={(event) => setName(event.target.value)} />
+          </Field>
+          <Field label="Organization">
+            <Input value={organization} onChange={(event) => setOrganization(event.target.value)} />
+          </Field>
+          <Field label="Role">
+            <select className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3" value={role} onChange={(event) => setRole(event.target.value as ContactRole | "")}>
+              <option value="">Select…</option>
+              {CONTACT_ROLES.map((item) => (
+                <option key={item} value={item}>
+                  {labelize(item)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Phone">
+            <Input value={phone} onChange={(event) => setPhone(event.target.value)} />
+          </Field>
+          <Field label="Email">
+            <Input value={email} onChange={(event) => setEmail(event.target.value)} />
+          </Field>
+          <Field label="NPI">
+            <Input value={npi} onChange={(event) => setNpi(event.target.value)} />
+          </Field>
+          <div className="sm:col-span-2">
+            <Field label="Address">
+              <Input value={address} onChange={(event) => setAddress(event.target.value)} />
+            </Field>
+          </div>
+          <div className="sm:col-span-2">
+            <Field label="Notes">
+              <textarea className="min-h-16 w-full rounded border border-neutral-300 p-2" value={notes} onChange={(event) => setNotes(event.target.value)} />
+            </Field>
+          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+            <input type="checkbox" checked={isEmergency} onChange={(event) => setIsEmergency(event.target.checked)} /> Emergency contact
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+            <input type="checkbox" checked={isPrimary} onChange={(event) => setIsPrimary(event.target.checked)} /> Primary contact
+          </label>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={!name.trim()}>
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-neutral-700">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function splitList(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function labelize(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}

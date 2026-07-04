@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { SettingsView } from "@/components/settings/settings-view";
 
 export default function SettingsPage() {
-  return <StubPage title="Settings" />;
+  return <SettingsView />;
 }

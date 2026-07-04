@@ -11,9 +11,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadError } from "@/components/ui/load-error";
+import { ConflictModal } from "@/components/ui/conflict-modal";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
-import type { HydratedTask, MemberSummary, TaskPriority, TaskStatus } from "@/lib/types";
-import { cn, formatRelativeDueDate } from "@/lib/utils";
+import type { HydratedTask, MemberSummary, Task, TaskPriority, TaskStatus } from "@/lib/types";
+import { cn, formatDateTime, formatRelativeDueDate } from "@/lib/utils";
+
+type RecurrenceFrequency = "daily" | "weekly" | "every_n_days" | "monthly";
+type RecurrenceValue = { frequency: RecurrenceFrequency; interval: number } | null;
 
 type TaskFilter = "all" | "mine" | "overdue" | "unassigned" | "week";
 type TaskSort = "due" | "priority" | "assignee";
@@ -140,6 +144,7 @@ function TasksContent() {
         dueDate: payload.due_date,
         priority: payload.priority,
         status: payload.status,
+        recurrence: payload.recurrence,
         archive: payload.deleted_at !== undefined
       })
     });
@@ -364,7 +369,7 @@ function TaskDetail({
   return (
     <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-4">
       <h2 className="text-md font-semibold text-neutral-900">{task.title}</h2>
-      <p className="mt-3 whitespace-pre-wrap text-base text-neutral-600">{task.description || "No description yet."}</p>
+      <DescriptionEditor key={task.id} task={task} onReload={onReload} />
       <div className="mt-4 space-y-3">
         <Field label="Assignee">
           <select
@@ -395,6 +400,7 @@ function TaskDetail({
             <option value="urgent">Urgent</option>
           </select>
         </Field>
+        <RecurrenceControl value={parseRecurrence(task.recurrence)} onChange={(value) => onUpdate({ id: task.id, recurrence: value })} />
         <Badge variant={statusVariant[task.status]}>{labelize(task.status)}</Badge>
       </div>
       <div className="mt-5 flex flex-wrap gap-2">
@@ -446,12 +452,13 @@ function TaskModal({
   const [dueDate, setDueDate] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("normal");
+  const [recurrence, setRecurrence] = useState<RecurrenceValue>(null);
 
   const save = async () => {
     const response = await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ careCircleId, personId, title, dueDate: dueDate || null, assigneeId: assigneeId || null, priority })
+      body: JSON.stringify({ careCircleId, personId, title, dueDate: dueDate || null, assigneeId: assigneeId || null, priority, recurrence })
     });
     if (response.ok) await onSaved();
   };
@@ -485,6 +492,7 @@ function TaskModal({
               <option value="urgent">Urgent</option>
             </select>
           </Field>
+          <RecurrenceControl value={recurrence} onChange={setRecurrence} />
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
@@ -534,4 +542,117 @@ function nextWeekDate(): string {
   const date = new Date();
   date.setDate(date.getDate() + 7);
   return date.toISOString().slice(0, 10);
+}
+
+function DescriptionEditor({ task, onReload }: { task: HydratedTask; onReload: () => Promise<void> }) {
+  const [value, setValue] = useState(task.description ?? "");
+  const [conflict, setConflict] = useState<Task | null>(null);
+
+  const save = async (force: boolean, override?: string) => {
+    const description = override ?? value;
+    const body: { id: string; careCircleId: string; personId: string; description: string; expectedUpdatedAt?: string } = {
+      id: task.id,
+      careCircleId: task.care_circle_id,
+      personId: task.person_id,
+      description
+    };
+    if (!force) body.expectedUpdatedAt = task.updated_at;
+    const response = await fetch("/api/tasks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (response.status === 409) {
+      const json = (await response.json()) as { current?: Task };
+      if (json.current) setConflict(json.current);
+      return;
+    }
+    await onReload();
+  };
+
+  return (
+    <div className="mt-3">
+      <span className="mb-1 block text-sm font-medium text-neutral-700">Description</span>
+      <textarea
+        className="min-h-20 w-full rounded border border-neutral-300 p-2 text-base text-neutral-700"
+        value={value}
+        placeholder="No description yet."
+        onChange={(event) => setValue(event.target.value)}
+        onBlur={() => {
+          if (value !== (task.description ?? "")) void save(false);
+        }}
+      />
+      {conflict ? (
+        <ConflictModal
+          fieldLabel="Task description"
+          yourValue={value}
+          theirValue={conflict.description ?? ""}
+          savedByLabel={`Current version (saved ${formatDateTime(conflict.updated_at)})`}
+          onKeepTheirs={() => {
+            setValue(conflict.description ?? "");
+            setConflict(null);
+            void onReload();
+          }}
+          onUseMine={() => {
+            void save(true);
+            setConflict(null);
+          }}
+          onMerge={(merged) => {
+            setValue(merged);
+            void save(true, merged);
+            setConflict(null);
+          }}
+          onClose={() => setConflict(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function RecurrenceControl({ value, onChange }: { value: RecurrenceValue; onChange: (value: RecurrenceValue) => void }) {
+  return (
+    <div>
+      <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+        <input
+          type="checkbox"
+          checked={value !== null}
+          onChange={(event) => onChange(event.target.checked ? { frequency: "weekly", interval: 1 } : null)}
+        />
+        Repeats
+      </label>
+      {value ? (
+        <div className="mt-2 flex items-center gap-2">
+          <select
+            className="h-9 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+            value={value.frequency}
+            onChange={(event) => onChange({ ...value, frequency: event.target.value as RecurrenceFrequency })}
+          >
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="every_n_days">Every N days</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <span className="text-sm text-neutral-500">every</span>
+          <input
+            type="number"
+            min="1"
+            className="h-9 w-16 rounded-lg border border-neutral-300 bg-white px-2 text-sm"
+            value={value.interval}
+            onChange={(event) => onChange({ ...value, interval: Math.max(1, Number(event.target.value) || 1) })}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function parseRecurrence(value: unknown): RecurrenceValue {
+  if (value && typeof value === "object" && "frequency" in value) {
+    const record = value as { frequency?: string; interval?: number };
+    if (
+      record.frequency === "daily" ||
+      record.frequency === "weekly" ||
+      record.frequency === "every_n_days" ||
+      record.frequency === "monthly"
+    ) {
+      return { frequency: record.frequency, interval: record.interval ?? 1 };
+    }
+  }
+  return null;
 }

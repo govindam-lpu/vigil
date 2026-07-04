@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
   const personId = request.nextUrl.searchParams.get("personId");
   const eventGroup = request.nextUrl.searchParams.get("type") ?? "all";
   const authorId = request.nextUrl.searchParams.get("authorId");
+  const linkedObjectId = request.nextUrl.searchParams.get("linkedObjectId");
   const from = request.nextUrl.searchParams.get("from");
   const to = request.nextUrl.searchParams.get("to");
   const offset = Number(request.nextUrl.searchParams.get("offset") ?? "0");
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + 24);
 
     if (authorId) query = query.eq("author_id", authorId);
+    if (linkedObjectId) query = query.eq("linked_object_id", linkedObjectId);
     if (from) query = query.gte("occurred_at", `${from}T00:00:00`);
     if (to) query = query.lte("occurred_at", `${to}T23:59:59`);
     if (eventGroup !== "all") {
