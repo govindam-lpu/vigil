@@ -22,7 +22,9 @@ Use this as the short-form memory for a new session.
 - Phase 0 complete.
 - Phase 1 complete + debt paydown + Phase 0/1 audit fixes done.
 - Phase 2 not started (wait for user's explicit Phase 2 prompt).
-- Phase 0 + original Phase 1 migrations applied remotely. **Two NEW migrations pending apply: `202607030001_phase_1_debt.sql` and `202607030002_phase_1_audit_fixes.sql`** — apply in order before runtime testing.
+- **All migrations applied remotely** (2026-07-04): `202607030001_phase_1_debt.sql` + `202607030002_phase_1_audit_fixes.sql` pushed; `migration list` confirms local == remote for all five. No pending migrations.
+- **Pre-Phase-2 debt fixed (2026-07-04, code only, in working tree — confirm if committed):** deep-link record selection (`/tasks`,`/calendar`,`/documents` read `?task`/`?appointment`/`?document`; new scoped `?id` filter on `GET /api/documents`; views `<Suspense>`-wrapped); load cancellation + error surfacing on all six list/dashboard loads (new `components/ui/load-error.tsx`). Green on typecheck/lint/build.
+- **Live e2e passed (2026-07-04):** signed URLs resolve from the private bucket + unsigned public URL rejected (400); search highlighting XSS-safe (`@@HL@@`→`<mark>`, no script execution). Caregiver note-creation left code+migration-verified.
 - Dev command: `npm run dev -- --hostname 127.0.0.1 --port 3000`.
 - Verify with `npm run typecheck`, `npm run lint`, `npm run build` (all pass).
 
@@ -61,10 +63,9 @@ Use this as the short-form memory for a new session.
 
 ## Remaining Known Deviations (flagged, not fixed)
 
-- `caregiver` can't mark tasks complete (needs a `complete_task` RPC — deferred design decision).
-- Deep links (timeline/search → tasks/calendar/documents) don't select the target record.
-- List/dashboard loads: no request-cancellation (race on fast circle switch) and no error surfacing.
-- Notes not in primary sidebar (matches DESIGN nav); `task_comments` append-only; TanStack Query unused.
+- `caregiver` can't mark tasks complete (needs a `complete_task` RPC — **deferred into Phase 2**).
+- No storage `DELETE` policy on `documents` bucket → archived docs leave orphaned files (no purge path). Storage-lifecycle pass for a later phase.
+- Notes not in primary sidebar (matches DESIGN nav); `task_comments` append-only; TanStack Query unused; minor RLS edges (see HANDOVER).
 
 ## Next Step
 

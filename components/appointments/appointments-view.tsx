@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { AppointmentStatus, AppointmentType, Folder, HydratedAppointment, HydratedDocument, MemberSummary } from "@/lib/types";
@@ -24,35 +26,62 @@ const statusVariant: Record<AppointmentStatus, "neutral" | "green" | "red"> = {
 };
 
 export function AppointmentsView() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading calendar…</div>}>
+      <AppointmentsContent />
+    </Suspense>
+  );
+}
+
+function AppointmentsContent() {
   const { activeCircle } = useActiveCircle();
+  const searchParams = useSearchParams();
+  const appointmentParam = searchParams.get("appointment");
   const [appointments, setAppointments] = useState<HydratedAppointment[]>([]);
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [mode, setMode] = useState<ViewMode>("list");
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(appointmentParam);
+  const [error, setError] = useState<string | null>(null);
 
   const selected = appointments.find((appointment) => appointment.id === selectedId) ?? appointments[0] ?? null;
 
-  const load = async () => {
+  const load = async (isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
-    const [appointmentResponse, memberResponse, folderResponse] = await Promise.all([
-      fetch(`/api/appointments?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-      fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
-      fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
-    ]);
-    const appointmentJson = (await appointmentResponse.json()) as { appointments?: HydratedAppointment[] };
-    const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
-    const folderJson = (await folderResponse.json()) as { folders?: Folder[] };
-    setAppointments(appointmentJson.appointments ?? []);
-    setMembers(memberJson.members ?? []);
-    setFolders(folderJson.folders ?? []);
+    try {
+      setError(null);
+      const [appointmentResponse, memberResponse, folderResponse] = await Promise.all([
+        fetch(`/api/appointments?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
+        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
+        fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
+      ]);
+      if (!appointmentResponse.ok || !memberResponse.ok || !folderResponse.ok) throw new Error("Request failed");
+      const appointmentJson = (await appointmentResponse.json()) as { appointments?: HydratedAppointment[] };
+      const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
+      const folderJson = (await folderResponse.json()) as { folders?: Folder[] };
+      if (isCancelled?.()) return;
+      setAppointments(appointmentJson.appointments ?? []);
+      setMembers(memberJson.members ?? []);
+      setFolders(folderJson.folders ?? []);
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load appointments. Check your connection and try again.");
+    }
   };
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void load(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
+
+  useEffect(() => {
+    if (appointmentParam) setSelectedId(appointmentParam);
+  }, [appointmentParam]);
 
   const grouped = useMemo(() => {
     const groups = new Map<string, HydratedAppointment[]>();
@@ -87,6 +116,12 @@ export function AppointmentsView() {
           </Button>
         </div>
       </div>
+
+      {error ? (
+        <div className="mt-5">
+          <LoadError message={error} onRetry={() => void load()} />
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {mode === "list" ? (

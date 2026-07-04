@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { CheckSquare, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import type { HydratedTask, MemberSummary, TaskPriority, TaskStatus } from "@/lib/types";
 import { cn, formatRelativeDueDate } from "@/lib/utils";
@@ -32,33 +34,60 @@ const statusVariant: Record<TaskStatus, "neutral" | "yellow" | "green" | "red"> 
 };
 
 export function TasksView() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading tasks…</div>}>
+      <TasksContent />
+    </Suspense>
+  );
+}
+
+function TasksContent() {
   const { activeCircle } = useActiveCircle();
+  const searchParams = useSearchParams();
+  const taskParam = searchParams.get("task");
   const [tasks, setTasks] = useState<HydratedTask[]>([]);
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [filter, setFilter] = useState<TaskFilter>("all");
   const [sort, setSort] = useState<TaskSort>("due");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(taskParam);
   const [modalOpen, setModalOpen] = useState(false);
   const [toast, setToast] = useState<{ task: HydratedTask; timeoutId: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const selected = tasks.find((task) => task.id === selectedId) ?? tasks[0] ?? null;
 
-  const load = async () => {
+  const load = async (isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
-    const [taskResponse, memberResponse] = await Promise.all([
-      fetch(`/api/tasks?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-      fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`)
-    ]);
-    const taskJson = (await taskResponse.json()) as { tasks?: HydratedTask[] };
-    const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
-    setTasks(taskJson.tasks ?? []);
-    setMembers(memberJson.members ?? []);
+    try {
+      setError(null);
+      const [taskResponse, memberResponse] = await Promise.all([
+        fetch(`/api/tasks?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
+        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`)
+      ]);
+      if (!taskResponse.ok || !memberResponse.ok) throw new Error("Request failed");
+      const taskJson = (await taskResponse.json()) as { tasks?: HydratedTask[] };
+      const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
+      if (isCancelled?.()) return;
+      setTasks(taskJson.tasks ?? []);
+      setMembers(memberJson.members ?? []);
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load tasks. Check your connection and try again.");
+    }
   };
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void load(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
+
+  useEffect(() => {
+    if (taskParam) setSelectedId(taskParam);
+  }, [taskParam]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -144,6 +173,12 @@ export function TasksView() {
           Add Task
         </Button>
       </div>
+
+      {error ? (
+        <div className="mt-5">
+          <LoadError message={error} onRetry={() => void load()} />
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="min-w-0 rounded-lg border border-neutral-200 bg-white">

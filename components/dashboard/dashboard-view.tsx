@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadError } from "@/components/ui/load-error";
 import { roleLabel } from "@/lib/permissions/roles";
 import type { CareMode, DashboardChanges, MemberSummary, UserProfile } from "@/lib/types";
 import { calculateAge, formatPersonName, relativeTime } from "@/lib/utils";
@@ -27,6 +28,8 @@ export function DashboardView({ profile }: DashboardViewProps) {
   const { activeCircle } = useActiveCircle();
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [changes, setChanges] = useState<DashboardChanges | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!activeCircle) {
@@ -37,16 +40,24 @@ export function DashboardView({ profile }: DashboardViewProps) {
 
     const loadDashboard = async () => {
       if (!activeCircle.person) return;
-      const [memberResponse, changesResponse] = await Promise.all([
-        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
-        fetch(`/api/dashboard/changes?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
-      ]);
-      const result = (await memberResponse.json()) as { members?: MemberSummary[] };
-      const changesResult = (await changesResponse.json()) as { changes?: DashboardChanges };
+      try {
+        setError(null);
+        const [memberResponse, changesResponse] = await Promise.all([
+          fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
+          fetch(`/api/dashboard/changes?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
+        ]);
+        if (!memberResponse.ok || !changesResponse.ok) throw new Error("Request failed");
+        const result = (await memberResponse.json()) as { members?: MemberSummary[] };
+        const changesResult = (await changesResponse.json()) as { changes?: DashboardChanges };
 
-      if (!cancelled) {
-        setMembers(result.members ?? []);
-        setChanges(changesResult.changes ?? null);
+        if (!cancelled) {
+          setMembers(result.members ?? []);
+          setChanges(changesResult.changes ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setError("We couldn't load your dashboard. Check your connection and try again.");
+        }
       }
     };
 
@@ -55,7 +66,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeCircle]);
+  }, [activeCircle, reloadKey]);
 
   if (!activeCircle?.person) {
     return null;
@@ -108,6 +119,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
           <div className="sticky top-14 z-10 -mx-2 bg-neutral-50 px-2 py-2">
             <h2 className="text-lg font-semibold text-neutral-900">Welcome back, {profile.display_name}</h2>
           </div>
+          {error ? <LoadError message={error} onRetry={() => setReloadKey((key) => key + 1)} /> : null}
           {changes && changes.totalTimelineEntries > 0 ? (
             <ChangesCallout
               changes={changes}
