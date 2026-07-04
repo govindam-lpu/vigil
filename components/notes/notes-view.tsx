@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import type { HydratedNote } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
@@ -16,18 +17,31 @@ export function NotesView() {
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentRole, setCurrentRole] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = async (isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
-    const response = await fetch(`/api/notes?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`);
-    const json = (await response.json()) as { notes?: HydratedNote[]; currentUserId?: string; currentRole?: string };
-    setNotes(json.notes ?? []);
-    setCurrentUserId(json.currentUserId ?? "");
-    setCurrentRole(json.currentRole ?? "");
+    try {
+      setError(null);
+      const response = await fetch(`/api/notes?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`);
+      if (!response.ok) throw new Error("Request failed");
+      const json = (await response.json()) as { notes?: HydratedNote[]; currentUserId?: string; currentRole?: string };
+      if (isCancelled?.()) return;
+      setNotes(json.notes ?? []);
+      setCurrentUserId(json.currentUserId ?? "");
+      setCurrentRole(json.currentRole ?? "");
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load notes. Check your connection and try again.");
+    }
   };
 
   useEffect(() => {
-    void load();
+    let cancelled = false;
+    void load(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
 
@@ -45,6 +59,12 @@ export function NotesView() {
           Add Note
         </Button>
       </div>
+
+      {error ? (
+        <div className="mt-5">
+          <LoadError message={error} onRetry={() => void load()} />
+        </div>
+      ) : null}
 
       <section className="mt-5 space-y-3">
         {notes.length === 0 ? (

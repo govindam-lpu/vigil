@@ -1,6 +1,6 @@
 # Vigil Handover
 
-Last updated: 2026-07-03
+Last updated: 2026-07-04
 
 This file is the project handover for a new Codex session. Treat it as operational memory, not as a replacement for the source-of-truth specs.
 
@@ -239,18 +239,16 @@ Not built because they are future phases or explicitly excluded:
 - Invite UI flow
 - Notification delivery via email/push/SMS
 
-## ⚠️ Pending Migrations To Apply (2026-07-03)
+## ✅ Migrations Applied (2026-07-04)
 
-Two migrations are written but **NOT yet applied to the remote Supabase DB**. Apply them in order (same pooler method as prior migrations) before any runtime testing — the current app code depends on them:
+Both previously-pending migrations are now **applied to the remote Supabase DB** — pushed via `npx supabase db push --db-url "<session pooler>"`. `npx supabase migration list` confirms local == remote for all five migrations:
 
-1. `supabase/migrations/202607030001_phase_1_debt.sql`
-2. `supabase/migrations/202607030002_phase_1_audit_fixes.sql`
+- `202605210001`, `202606090001`, `202606090002`, `202607030001`, `202607030002` — all present remotely. **No pending migrations.**
 
-```powershell
-npx supabase db push --db-url "<secure pooler connection string>"
-```
+The two applied this session:
 
-Until applied, the app will error at runtime against the current DB (new columns/policies/functions are missing). All three static gates (`typecheck`, `lint`, `build`) pass regardless, since they don't touch the DB.
+1. `supabase/migrations/202607030001_phase_1_debt.sql` — applied
+2. `supabase/migrations/202607030002_phase_1_audit_fixes.sql` — applied
 
 ## Phase 1 Debt Paydown (2026-07-03) — migration `202607030001`
 
@@ -277,14 +275,20 @@ Full review of Phase 0 + Phase 1 (server routes, permission helpers, middleware,
 
 Positive confirmations: RLS enabled on every care-circle table; **no DELETE policy anywhere** (hard-delete impossible); all CHECK enums match the TS unions with zero drift; SECURITY DEFINER helpers pin `search_path` and check `auth.uid()`; every policy targets `authenticated`.
 
+## Pre-Phase-2 Debt Paydown (2026-07-04) — code only, no migration
+
+Fixed this session (in the working tree — confirm whether committed):
+
+- **[FIXED] Deep links now select the target record.** `/tasks`, `/calendar`, `/documents` read `?task` / `?appointment` / `?document` via `useSearchParams` and select that record. Each view is wrapped in `<Suspense>` (mirroring `search-view`) for the hook. Documents resolves the doc's folder first via a new **scoped `?id` filter added to `GET /api/documents`** (still filters `care_circle_id` + `person_id` + membership).
+- **[FIXED] List/dashboard loads now cancel + surface errors.** All six loads (tasks, appointments, documents, notes, timeline, dashboard) guard state writes behind a `cancelled` flag (no more wrong-Person flash on fast circle-switch) and check `response.ok`, surfacing a retry-able banner via the new shared `components/ui/load-error.tsx` (DESIGN tokens: red-400 border, red-50 bg, red-600 text) instead of silently rendering empty.
+- Static gates green after these changes; **live e2e passed** (see below).
+
 ## Remaining Known Deviations / Technical Debt
 
-Flagged during the audit; NOT fixed (design decisions or lower priority — good early-Phase-2 cleanup):
+Still open (design decisions or lower priority):
 
-- **`caregiver` cannot mark tasks complete.** Both the tasks API and RLS require contributor+ (they're consistent, so it's a capability gap, not a broken flow). Spec says caregivers can complete tasks. Correct fix is a constrained path — a `complete_task(task_id)` SECURITY DEFINER RPC — since column-level restriction isn't expressible in RLS. Deferred as a design decision.
-- **Deep links select the wrong record.** Timeline/search links to `/tasks?task=…`, `/calendar?appointment=…`, `/documents?document=…`, but those views don't read the query param — they default-select the first record. Needs `useSearchParams`-driven selection in each view.
-- **List loads have no cancellation.** Tasks/Appointments/Documents/Notes/Timeline `load()` lack an `active`/`cancelled` guard (DashboardView and DocumentDetail have the pattern). Fast care-circle switching can race and briefly show the wrong Person's data. Add cancellation guards.
-- **No error surfacing on list/dashboard loads.** Fetch failures fall through to empty state with no message (DESIGN forbids silent failure). Add try/catch + error UI.
+- **`caregiver` cannot mark tasks complete.** Both the tasks API and RLS require contributor+ (consistent — a capability gap, not a broken flow). Spec says caregivers can complete tasks. Correct fix is a constrained `complete_task(task_id)` SECURITY DEFINER RPC (column-level restriction isn't expressible in RLS). **Deferred into Phase 2** (belongs with care-ops / task work).
+- **No storage `DELETE` policy on the `documents` bucket.** Archiving a document soft-deletes the row, but its storage object is never removed and can't be removed via a user session (no delete policy). Files accumulate as orphans; there's no purge path even on hard-delete. Consistent with soft-delete-only, but worth a storage-lifecycle pass later. (Confirmed live: user-session storage DELETE returns 400.)
 - Notes page exists at `/notes` but isn't in the primary sidebar (`DESIGN.md` primary nav omits Notes — intentional).
 - `task_comments` is append-only (no UPDATE policy / no `deleted_at`) — assumed intentional.
 - Server state uses local fetch/state, not TanStack Query (installed but unused).
@@ -336,23 +340,26 @@ Core pages:
 - `app/(app)/notes/page.tsx`
 - `app/(app)/search/page.tsx`
 
+## Live e2e Verification (2026-07-04)
+
+Ran headlessly against the live project (Preview browser, logged in as the test account `govindam@mridangamedia.com`, circle "MM Care" — an empty circle that was seeded with throwaway data and then cleaned up):
+
+- **Signed URLs ✅** — uploaded to the private bucket → created the doc via `POST /api/documents` → `GET /api/documents/signed-url` returned a signed URL → fetched it (bytes matched) → unsigned public URL rejected (`400`). User-scoped `createSignedUrl` through the private bucket works, and the bucket is genuinely private (cross-circle leak closed).
+- **Search highlighting ✅** — a note containing a literal `<script>` searched clean: `search_phase1` emits `@@HL@@` sentinels; rendered DOM has only `<mark>` (no `<script>`, nothing executed).
+- **Caregiver note creation** — left as code+migration-verified (`can_log_care` applied; notes API min-role `caregiver`); not exercised live per the user's call.
+- Cleanup: seeded note/doc soft-deleted, timeline entries archived; one orphaned storage object remains (no user delete policy — see debt list). The `service_role` key was shared in chat but ultimately unused — **user was advised to rotate it.**
+
 ## What Is Left Next
 
 Wait for the user’s explicit Phase 2 prompt before building more.
 
-Likely Phase 2 areas from README are Care Operations, but do not infer scope. The user must provide the specific Phase 2 requirements.
+Likely Phase 2 areas from README are Care Operations, but do not infer scope. The user must provide the specific Phase 2 requirements. **Cross-check any Phase 2 prompt against README's "Phase 2 — Care Operations"** (medications; recurring task/reminder schedules; symptom/observation logging; visit summaries; check-in logging; follow-up task generation; escalation logic; responsibility handoff; optimistic locking + conflict-resolution UI) and flag out-of-scope items before writing code.
 
 Before Phase 2, a prudent new session should:
 
 1. Read `README.md` and `DESIGN.md`.
-2. Read this handover.
-3. Run:
+2. Read this handover + `PROJECT_MEMORY.md`.
+3. Run `npm run typecheck`, `npm run lint`, `npm run build` (all currently green).
 
-```powershell
-npm run typecheck
-npm run lint
-npm run build
-```
-
-4. Start the app and do a quick manual smoke test with the existing Supabase project.
+Migrations are already applied and a live smoke test already passed this session — no need to re-apply or re-verify unless something changed. The pre-Phase-2 debt fixes (deep links, load cancellation/error surfacing) are in the working tree; confirm whether they've been committed before starting Phase 2.
 

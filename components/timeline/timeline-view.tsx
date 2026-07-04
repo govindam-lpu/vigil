@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import type { HydratedTimelineEvent, MemberSummary } from "@/lib/types";
 import { cn, formatDateTime } from "@/lib/utils";
@@ -24,33 +25,46 @@ export function TimelineView() {
   const [to, setTo] = useState("");
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const load = async (nextOffset = 0, append = false) => {
+  const load = async (nextOffset = 0, append = false, isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
-    const params = new URLSearchParams({
-      careCircleId: activeCircle.careCircle.id,
-      personId: activeCircle.person.id,
-      type,
-      offset: String(nextOffset)
-    });
-    if (authorId) params.set("authorId", authorId);
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
+    try {
+      setError(null);
+      const params = new URLSearchParams({
+        careCircleId: activeCircle.careCircle.id,
+        personId: activeCircle.person.id,
+        type,
+        offset: String(nextOffset)
+      });
+      if (authorId) params.set("authorId", authorId);
+      if (from) params.set("from", from);
+      if (to) params.set("to", to);
 
-    const [eventResponse, memberResponse] = await Promise.all([
-      fetch(`/api/timeline?${params.toString()}`),
-      fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`)
-    ]);
-    const eventJson = (await eventResponse.json()) as { events?: HydratedTimelineEvent[]; hasMore?: boolean };
-    const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
-    setEvents((current) => (append ? [...current, ...(eventJson.events ?? [])] : eventJson.events ?? []));
-    setHasMore(eventJson.hasMore ?? false);
-    setMembers(memberJson.members ?? []);
-    setOffset(nextOffset);
+      const [eventResponse, memberResponse] = await Promise.all([
+        fetch(`/api/timeline?${params.toString()}`),
+        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`)
+      ]);
+      if (!eventResponse.ok || !memberResponse.ok) throw new Error("Request failed");
+      const eventJson = (await eventResponse.json()) as { events?: HydratedTimelineEvent[]; hasMore?: boolean };
+      const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
+      if (isCancelled?.()) return;
+      setEvents((current) => (append ? [...current, ...(eventJson.events ?? [])] : eventJson.events ?? []));
+      setHasMore(eventJson.hasMore ?? false);
+      setMembers(memberJson.members ?? []);
+      setOffset(nextOffset);
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load the timeline. Check your connection and try again.");
+    }
   };
 
   useEffect(() => {
-    void load(0, false);
+    let cancelled = false;
+    void load(0, false, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id, authorId, from, to, type]);
 
@@ -97,6 +111,12 @@ export function TimelineView() {
           </button>
         </div>
       </div>
+
+      {error ? (
+        <div className="mt-5">
+          <LoadError message={error} onRetry={() => void load(0, false)} />
+        </div>
+      ) : null}
 
       <section className="mt-5 space-y-3">
         {events.length === 0 ? (

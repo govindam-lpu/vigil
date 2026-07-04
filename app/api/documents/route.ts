@@ -51,6 +51,7 @@ const documentUpdateSchema = z.object({
 export async function GET(request: NextRequest) {
   const careCircleId = request.nextUrl.searchParams.get("careCircleId");
   const personId = request.nextUrl.searchParams.get("personId");
+  const id = request.nextUrl.searchParams.get("id");
   const folderId = request.nextUrl.searchParams.get("folderId");
   const appointmentId = request.nextUrl.searchParams.get("appointmentId");
   const smartView = request.nextUrl.searchParams.get("smartView");
@@ -69,6 +70,9 @@ export async function GET(request: NextRequest) {
       .is("deleted_at", null)
       .order("created_at", { ascending: false });
 
+    // A single-id lookup (deep links from timeline/search) resolves the record
+    // and its folder; still scoped by care_circle_id + person_id + membership.
+    if (id) query = query.eq("id", id);
     if (folderId) query = query.eq("folder_id", folderId);
     if (appointmentId) query = query.eq("appointment_id", appointmentId);
     if (smartView === "expiring") {

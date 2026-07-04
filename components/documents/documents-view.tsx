@@ -1,13 +1,15 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { FileText, Filter, Folder as FolderIcon, Grid2X2, List, Lock, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { DocumentType, Folder, HydratedDocument } from "@/lib/types";
@@ -18,7 +20,17 @@ type DocumentMode = "list" | "grid";
 type SmartView = "expiring" | "added" | "pinned";
 
 export function DocumentsView() {
+  return (
+    <Suspense fallback={<div className="p-6">Loading documents…</div>}>
+      <DocumentsContent />
+    </Suspense>
+  );
+}
+
+function DocumentsContent() {
   const { activeCircle } = useActiveCircle();
+  const searchParams = useSearchParams();
+  const documentParam = searchParams.get("document");
   const [folders, setFolders] = useState<FolderWithCount[]>([]);
   const [documents, setDocuments] = useState<HydratedDocument[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -26,42 +38,91 @@ export function DocumentsView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mode, setMode] = useState<DocumentMode>("list");
   const [modalOpen, setModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const selected = documents.find((document) => document.id === selectedId) ?? documents[0] ?? null;
 
-  const loadFolders = async () => {
+  const loadFolders = async (isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
-    const response = await fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`);
-    const json = (await response.json()) as { folders?: FolderWithCount[] };
-    setFolders(json.folders ?? []);
-    if (!selectedFolderId && !smartView) {
-      const medical = json.folders?.find((folder) => folder.name === "Medical Records") ?? json.folders?.[0];
-      setSelectedFolderId(medical?.id ?? null);
+    try {
+      const response = await fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`);
+      if (!response.ok) throw new Error("Request failed");
+      const json = (await response.json()) as { folders?: FolderWithCount[] };
+      if (isCancelled?.()) return;
+      setFolders(json.folders ?? []);
+      // A deep link (?document=) resolves its own folder — don't override it here.
+      if (!selectedFolderId && !smartView && !documentParam) {
+        const medical = json.folders?.find((folder) => folder.name === "Medical Records") ?? json.folders?.[0];
+        setSelectedFolderId(medical?.id ?? null);
+      }
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load documents. Check your connection and try again.");
     }
   };
 
-  const loadDocuments = async () => {
+  const loadDocuments = async (isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
-    const params = new URLSearchParams({
-      careCircleId: activeCircle.careCircle.id,
-      personId: activeCircle.person.id
-    });
-    if (selectedFolderId && !smartView) params.set("folderId", selectedFolderId);
-    if (smartView) params.set("smartView", smartView);
-    const response = await fetch(`/api/documents?${params.toString()}`);
-    const json = (await response.json()) as { documents?: HydratedDocument[] };
-    setDocuments(json.documents ?? []);
+    try {
+      setError(null);
+      const params = new URLSearchParams({
+        careCircleId: activeCircle.careCircle.id,
+        personId: activeCircle.person.id
+      });
+      if (selectedFolderId && !smartView) params.set("folderId", selectedFolderId);
+      if (smartView) params.set("smartView", smartView);
+      const response = await fetch(`/api/documents?${params.toString()}`);
+      if (!response.ok) throw new Error("Request failed");
+      const json = (await response.json()) as { documents?: HydratedDocument[] };
+      if (isCancelled?.()) return;
+      setDocuments(json.documents ?? []);
+    } catch {
+      if (isCancelled?.()) return;
+      setError("We couldn't load documents. Check your connection and try again.");
+    }
   };
 
   useEffect(() => {
-    void loadFolders();
+    let cancelled = false;
+    void loadFolders(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
 
   useEffect(() => {
-    void loadDocuments();
+    let cancelled = false;
+    void loadDocuments(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id, selectedFolderId, smartView]);
+
+  // Deep link from timeline/search: resolve the document, switch to its folder,
+  // and select it (documents load per-folder, so we must find its home first).
+  useEffect(() => {
+    if (!documentParam || !activeCircle?.person) return;
+    const careCircleId = activeCircle.careCircle.id;
+    const personId = activeCircle.person.id;
+    let cancelled = false;
+    void (async () => {
+      const params = new URLSearchParams({ careCircleId, personId, id: documentParam });
+      const response = await fetch(`/api/documents?${params.toString()}`);
+      if (!response.ok) return;
+      const json = (await response.json()) as { documents?: HydratedDocument[] };
+      const target = json.documents?.[0];
+      if (cancelled || !target) return;
+      setSmartView(null);
+      setSelectedFolderId(target.folder_id ?? null);
+      setSelectedId(target.id);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documentParam, activeCircle?.careCircle.id, activeCircle?.person?.id]);
 
   const systemFolders = useMemo(() => folders.filter((folder) => folder.folder_type === "system"), [folders]);
   const userFolders = useMemo(() => folders.filter((folder) => folder.folder_type === "user_created"), [folders]);
@@ -90,6 +151,12 @@ export function DocumentsView() {
           Add Document
         </Button>
       </div>
+
+      {error ? (
+        <div className="mt-5">
+          <LoadError message={error} onRetry={() => { void loadFolders(); void loadDocuments(); }} />
+        </div>
+      ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
         <aside className="rounded-lg border border-neutral-200 bg-white p-3">
