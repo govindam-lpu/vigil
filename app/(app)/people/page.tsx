@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { PeopleView } from "@/components/people/people-view";
 
 export default function PeoplePage() {
-  return <StubPage title="People & Roles" />;
+  return <PeopleView />;
 }

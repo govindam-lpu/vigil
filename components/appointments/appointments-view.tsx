@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { createClient } from "@/lib/supabase/client";
-import type { AppointmentStatus, AppointmentType, Folder, HydratedAppointment, HydratedDocument, MemberSummary } from "@/lib/types";
+import type { AppointmentStatus, AppointmentType, Contact, Folder, HydratedAppointment, HydratedDocument, MemberSummary } from "@/lib/types";
 import { cn, formatMonth, toDateTimeLocalValue } from "@/lib/utils";
 
 type ViewMode = "list" | "calendar";
@@ -40,6 +40,7 @@ function AppointmentsContent() {
   const [appointments, setAppointments] = useState<HydratedAppointment[]>([]);
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [mode, setMode] = useState<ViewMode>("list");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(appointmentParam);
@@ -51,19 +52,22 @@ function AppointmentsContent() {
     if (!activeCircle?.person) return;
     try {
       setError(null);
-      const [appointmentResponse, memberResponse, folderResponse] = await Promise.all([
+      const [appointmentResponse, memberResponse, folderResponse, contactResponse] = await Promise.all([
         fetch(`/api/appointments?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
         fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
-        fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
+        fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
+        fetch(`/api/contacts?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
       ]);
-      if (!appointmentResponse.ok || !memberResponse.ok || !folderResponse.ok) throw new Error("Request failed");
+      if (!appointmentResponse.ok || !memberResponse.ok || !folderResponse.ok || !contactResponse.ok) throw new Error("Request failed");
       const appointmentJson = (await appointmentResponse.json()) as { appointments?: HydratedAppointment[] };
       const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
       const folderJson = (await folderResponse.json()) as { folders?: Folder[] };
+      const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
       if (isCancelled?.()) return;
       setAppointments(appointmentJson.appointments ?? []);
       setMembers(memberJson.members ?? []);
       setFolders(folderJson.folders ?? []);
+      setContacts(contactJson.contacts ?? []);
     } catch {
       if (isCancelled?.()) return;
       setError("We couldn't load appointments. Check your connection and try again.");
@@ -172,6 +176,7 @@ function AppointmentsContent() {
           careCircleId={activeCircle.careCircle.id}
           personId={activeCircle.person.id}
           members={members}
+          contacts={contacts}
           onClose={() => setModalOpen(false)}
           onSaved={async () => {
             setModalOpen(false);
@@ -185,9 +190,11 @@ function AppointmentsContent() {
 
 function AppointmentDetail({ appointment, members, folders, onReload }: { appointment: HydratedAppointment | null; members: MemberSummary[]; folders: Folder[]; onReload: () => Promise<void> }) {
   const [outcome, setOutcome] = useState("");
+  const [followUps, setFollowUps] = useState("");
 
   useEffect(() => {
     setOutcome(appointment?.outcome ?? "");
+    setFollowUps("");
   }, [appointment?.id, appointment?.outcome]);
 
   if (!appointment) return <Card className="hidden h-fit lg:block">Select an appointment to view details.</Card>;
@@ -217,18 +224,25 @@ function AppointmentDetail({ appointment, members, folders, onReload }: { appoin
     await onReload();
   };
 
-  const createFollowUpTask = async () => {
-    await fetch("/api/tasks", {
-      method: "POST",
+  const submitFollowUps = async () => {
+    const lines = followUps
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return;
+    await fetch("/api/appointments", {
+      method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        id: appointment.id,
         careCircleId: appointment.care_circle_id,
         personId: appointment.person_id,
-        title: `Follow up from ${appointment.title}`,
-        description: appointment.outcome,
-        priority: "normal"
+        outcome,
+        followUpTasks: lines
       })
     });
+    setFollowUps("");
+    await onReload();
   };
 
   return (
@@ -271,15 +285,25 @@ function AppointmentDetail({ appointment, members, folders, onReload }: { appoin
         </select>
       </Field>
       {appointment.status === "completed" ? (
-        <Field label="Outcome">
-          <textarea className="min-h-24 w-full rounded border border-neutral-300 p-3 text-base" value={outcome} onChange={(event) => setOutcome(event.target.value)} onBlur={() => update({ outcome })} />
-          <Button className="mt-2" size="sm" variant="secondary" onClick={() => update({ outcome, status: "completed" })}>
-            Save completion
-          </Button>
-          <Button className="ml-2 mt-2" size="sm" variant="secondary" onClick={createFollowUpTask}>
-            Add follow-up task
-          </Button>
-        </Field>
+        <>
+          <Field label="Visit summary / outcome">
+            <textarea className="min-h-32 w-full rounded border border-neutral-300 p-3 text-base" value={outcome} onChange={(event) => setOutcome(event.target.value)} onBlur={() => update({ outcome })} />
+            <Button className="mt-2" size="sm" variant="secondary" onClick={() => update({ outcome, status: "completed" })}>
+              Save completion
+            </Button>
+          </Field>
+          <Field label="Add follow-up tasks from this visit? (one per line)">
+            <textarea
+              className="min-h-20 w-full rounded border border-neutral-300 p-3 text-base"
+              placeholder={"Schedule 6-month follow-up\nSubmit referral for PT"}
+              value={followUps}
+              onChange={(event) => setFollowUps(event.target.value)}
+            />
+            <Button className="mt-2" size="sm" onClick={submitFollowUps} disabled={!followUps.trim()}>
+              Create follow-up tasks
+            </Button>
+          </Field>
+        </>
       ) : null}
       <AppointmentAttachments appointment={appointment} folders={folders} />
       <Button className="mt-4" size="sm" variant="secondary" onClick={() => update({ deleted_at: new Date().toISOString() })}>
@@ -357,9 +381,10 @@ function AppointmentAttachments({ appointment, folders }: { appointment: Hydrate
   );
 }
 
-function AppointmentModal({ careCircleId, personId, members, onClose, onSaved }: { careCircleId: string; personId: string; members: MemberSummary[]; onClose: () => void; onSaved: () => Promise<void> }) {
+function AppointmentModal({ careCircleId, personId, members, contacts, onClose, onSaved }: { careCircleId: string; personId: string; members: MemberSummary[]; contacts: Contact[]; onClose: () => void; onSaved: () => Promise<void> }) {
   const [title, setTitle] = useState("");
   const [providerName, setProviderName] = useState("");
+  const [providerContactId, setProviderContactId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("medical");
@@ -378,6 +403,7 @@ function AppointmentModal({ careCircleId, personId, members, onClose, onSaved }:
         personId,
         title,
         providerName,
+        providerContactId: providerContactId || null,
         scheduledAt: new Date(scheduledAt).toISOString(),
         durationMinutes: durationMinutes ? Number(durationMinutes) : null,
         appointmentType,
@@ -397,7 +423,27 @@ function AppointmentModal({ careCircleId, personId, members, onClose, onSaved }:
         <h2 className="text-md font-semibold text-neutral-900">Add Appointment</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
-          <Field label="Provider"><Input value={providerName} onChange={(event) => setProviderName(event.target.value)} /></Field>
+          <Field label="Provider (from contacts)">
+            <select
+              className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3"
+              value={providerContactId}
+              onChange={(event) => {
+                const id = event.target.value;
+                setProviderContactId(id);
+                const contact = contacts.find((item) => item.id === id);
+                if (contact) setProviderName(contact.name);
+              }}
+            >
+              <option value="">Not linked</option>
+              {contacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {contact.name}
+                  {contact.organization ? ` (${contact.organization})` : ""}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Provider name"><Input value={providerName} onChange={(event) => setProviderName(event.target.value)} /></Field>
           <Field label="Date and time"><Input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} /></Field>
           <Field label="Duration"><Input type="number" value={durationMinutes} onChange={(event) => setDurationMinutes(event.target.value)} /></Field>
           <Field label="Location"><Input value={location} onChange={(event) => setLocation(event.target.value)} /></Field>

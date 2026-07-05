@@ -1,13 +1,20 @@
 import type {
   AuditLog,
   Appointment,
+  CheckIn,
+  Contact,
+  CrisisModeSession,
   Document,
   CareCircle,
+  EscalationRule,
   Folder,
   Invitation,
   Json,
+  Medication,
+  MedicationAdministrationLog,
   Membership,
   Note,
+  Observation,
   Person,
   Reminder,
   SearchResult,
@@ -129,6 +136,77 @@ export type Database = {
         Update: UpdateOf<TaskComment>;
         Relationships: [];
       };
+      contacts: {
+        Row: Contact;
+        Insert: InsertOf<Contact, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<Contact>;
+        Relationships: [];
+      };
+      medications: {
+        Row: Medication;
+        Insert: InsertOf<Medication, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<Medication>;
+        Relationships: [];
+      };
+      medication_administration_logs: {
+        Row: MedicationAdministrationLog;
+        Insert: InsertOf<MedicationAdministrationLog, "id" | "created_at" | "administered_at"> & {
+          id?: string;
+          created_at?: string;
+          administered_at?: string;
+        };
+        Update: UpdateOf<MedicationAdministrationLog>;
+        Relationships: [];
+      };
+      check_ins: {
+        Row: CheckIn;
+        Insert: InsertOf<CheckIn, "id" | "created_at" | "occurred_at"> & {
+          id?: string;
+          created_at?: string;
+          occurred_at?: string;
+        };
+        Update: UpdateOf<CheckIn>;
+        Relationships: [];
+      };
+      observations: {
+        Row: Observation;
+        Insert: InsertOf<Observation, "id" | "created_at" | "updated_at" | "occurred_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+          occurred_at?: string;
+        };
+        Update: UpdateOf<Observation>;
+        Relationships: [];
+      };
+      escalation_rules: {
+        Row: EscalationRule;
+        Insert: InsertOf<EscalationRule, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<EscalationRule>;
+        Relationships: [];
+      };
+      crisis_mode_sessions: {
+        Row: CrisisModeSession;
+        Insert: InsertOf<CrisisModeSession, "id" | "created_at" | "activated_at"> & {
+          id?: string;
+          created_at?: string;
+          activated_at?: string;
+        };
+        Update: UpdateOf<CrisisModeSession>;
+        Relationships: [];
+      };
       folders: {
         Row: Folder;
         Insert: InsertOf<Folder, "id" | "created_at" | "updated_at"> & {
@@ -208,6 +286,12 @@ export type Database = {
           target_care_circle_id: string;
         };
         Returns: undefined;
+      };
+      complete_task: {
+        Args: {
+          target_task_id: string;
+        };
+        Returns: Task;
       };
     };
     Enums: {

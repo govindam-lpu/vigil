@@ -1,8 +1,8 @@
 # Vigil Handover
 
-Last updated: 2026-07-04
+Last updated: 2026-07-05
 
-This file is the project handover for a new Codex session. Treat it as operational memory, not as a replacement for the source-of-truth specs.
+This file is the project handover for a new session. Treat it as operational memory, not as a replacement for the source-of-truth specs.
 
 ## Source Of Truth
 
@@ -45,11 +45,12 @@ These apply to every phase.
 Implemented phases:
 
 - Phase 0: complete
-- Phase 1: complete
+- Phase 1: complete (merged to remote `main` via PRs #1 + #2)
+- Phase 2: complete — built, migration applied to remote, verified (static gates + authenticated e2e), committed on `phase-2-checkpoint` (`0d3fb53`) and pushed to GitHub. Open PR #3 to merge into `main`.
 
 Not started:
 
-- Phase 2 and beyond
+- Phase 3 and beyond. **Do not build Phase 3 until the user gives the explicit Phase 3 prompt.**
 
 The remote Supabase database has had migrations applied via the transaction pooler. The exact DB password was shared in chat but must not be copied into docs or committed. If migrations need to be pushed again, ask the user for the current secure connection string/password or use the local shell history only if explicitly appropriate.
 
@@ -283,6 +284,22 @@ Fixed this session (in the working tree — confirm whether committed):
 - **[FIXED] List/dashboard loads now cancel + surface errors.** All six loads (tasks, appointments, documents, notes, timeline, dashboard) guard state writes behind a `cancelled` flag (no more wrong-Person flash on fast circle-switch) and check `response.ok`, surfacing a retry-able banner via the new shared `components/ui/load-error.tsx` (DESIGN tokens: red-400 border, red-50 bg, red-600 text) instead of silently rendering empty.
 - Static gates green after these changes; **live e2e passed** (see below).
 
+## Phase 2 Completed (2026-07-04) — migration `202607040001_phase_2_care_operations.sql`
+
+**Applied to remote** via `npx supabase db push --db-url "<session pooler>"`; `npx supabase migration list` shows local == remote for all six migrations. Schema verified directly (11/11 checks) and an **authenticated e2e passed 16/16** (signed in as the test account via a throwaway `supabase-js` script; exercised RLS + new enums + `complete_task` RPC under real `auth.uid()`, then cleaned up every test row). Static gates green (typecheck / lint / build, 38/38). Committed `0d3fb53` on `phase-2-checkpoint`, pushed to GitHub.
+
+New tables (RLS on all; **no DELETE policy anywhere**): `contacts`, `medications`, `medication_administration_logs`, `check_ins`, `observations`, `escalation_rules`, `crisis_mode_sessions` (inert Phase-4 groundwork — user approved).
+
+Enum extensions: `reminders.reminder_type` +`medication_refill`; `timeline_events.event_type` +`check_in`/`medication_changed`/`observation_logged`. New columns: `notes.note_type`, `memberships.original_role`+`elevation_expires_at`, `appointments.provider_contact_id`, `escalation_rules.target_role`. RPC `complete_task(task_id)` — caregiver completion + recurring next-instance spawn (SECURITY DEFINER, `search_path` pinned, `can_log_care` gate).
+
+New API routes: `/api/contacts`, `/api/medications`, `/api/medications/administrations`, `/api/check-ins`, `/api/observations`, `/api/escalation-rules`, `/api/handoff`. Enhanced: tasks (recurrence + RPC completion + description conflict), appointments (follow-up tasks + provider contact), persons (added PATCH + conflict), notes (content edit + conflict), timeline (`linkedObjectId` filter).
+
+New UI: `/medications`, `/people` (members + Care Team Contacts + Person profile edit), `/settings` (escalation rules); dashboard modules (quick check-in, refills-due, observations logger, hand-off); shared `components/ui/conflict-modal.tsx`; recurring-task + visit-summary follow-up UI.
+
+Scope decisions (user-approved when flagged): built the inert `crisis_mode_sessions` table; INCLUDED symptom/observation logging (a README Phase-2 item the spec omitted — the `observations` table was designed here); INCLUDED `medication_administration_logs`.
+
+Phase 2 deviations (flagged): reminder recurrence not built (task recurrence only); escalation-rule *firing* and handoff role-elevation *auto-revert* deferred to Phase 4 (need background jobs); recurrence-on-completion lives in the `complete_task` RPC (not the API) so caregiver completions recur RLS-safely; medications not added to global search (`search_phase1` unchanged); caregiver task-*description* edits 403 silently (completion works, editing is contributor+).
+
 ## Remaining Known Deviations / Technical Debt
 
 Still open (design decisions or lower priority):
@@ -351,15 +368,16 @@ Ran headlessly against the live project (Preview browser, logged in as the test 
 
 ## What Is Left Next
 
-Wait for the user’s explicit Phase 2 prompt before building more.
+Phase 2 is complete, applied, and verified. **Wait for the user’s explicit Phase 3 prompt before building anything.**
 
-Likely Phase 2 areas from README are Care Operations, but do not infer scope. The user must provide the specific Phase 2 requirements. **Cross-check any Phase 2 prompt against README's "Phase 2 — Care Operations"** (medications; recurring task/reminder schedules; symptom/observation logging; visit summaries; check-in logging; follow-up task generation; escalation logic; responsibility handoff; optimistic locking + conflict-resolution UI) and flag out-of-scope items before writing code.
+Phase 3 is **AI-Assisted Capture** (voice notes → transcribed notes; OCR on uploaded documents; structured extraction from discharge summaries / labs / EOBs; auto-suggested reminders and tasks — every extraction a suggestion the user accepts or discards, never auto-committed). **Cross-check any Phase 3 prompt against README's "Phase 3 — AI-Assisted Capture" and flag out-of-scope items before writing code.** The real new surface is infra that does not exist yet: a document upload → post-processing/OCR/extraction pipeline, and a model integration (Claude API).
 
-Before Phase 2, a prudent new session should:
+A prudent new session should:
 
-1. Read `README.md` and `DESIGN.md`.
+1. Read `README.md` and `DESIGN.md` (source of truth) — flag any later instruction that contradicts them.
 2. Read this handover + `PROJECT_MEMORY.md`.
-3. Run `npm run typecheck`, `npm run lint`, `npm run build` (all currently green).
+3. Run `npm run typecheck`, `npm run lint`, `npm run build` (all currently green, 38/38).
+4. **Do NOT re-apply the Phase 2 migration or re-run its e2e** — already applied + verified. **Do NOT build until the Phase 3 prompt arrives.**
 
-Migrations are already applied and a live smoke test already passed this session — no need to re-apply or re-verify unless something changed. The pre-Phase-2 debt fixes (deep links, load cancellation/error surfacing) are in the working tree; confirm whether they've been committed before starting Phase 2.
+Optional housekeeping before Phase 3: merge PR #3 (`phase-2-checkpoint` → `main`); rotate the DB password that was shared in chat; local `main` (`409352f`) is stale vs remote `main` (`git fetch` + reset if you rely on it). A standing test login for any e2e lives in `.env.local` as `VIGIL_TEST_EMAIL` / `VIGIL_TEST_PASSWORD` (gitignored).
 
