@@ -16,7 +16,12 @@ export async function getCurrentUser() {
   return user;
 }
 
-export async function getOrCreateProfile(userId: string, email: string | null): Promise<UserProfile> {
+export async function getOrCreateProfile(
+  userId: string,
+  email: string | null,
+  displayName?: string | null,
+  avatarUrl?: string | null
+): Promise<UserProfile> {
   const supabase = createClient();
 
   const { data: existingProfile } = await supabase
@@ -29,14 +34,14 @@ export async function getOrCreateProfile(userId: string, email: string | null): 
     return existingProfile;
   }
 
-  const displayName = email?.split("@")[0] ?? "Vigil User";
+  const resolvedName = displayName?.trim() || email?.split("@")[0] || "Vigil User";
   const { data, error } = await supabase
     .from("users_profiles")
     .insert({
       id: userId,
-      display_name: displayName,
+      display_name: resolvedName,
       phone: null,
-      avatar_url: null,
+      avatar_url: avatarUrl ?? null,
       timezone: "UTC",
       notification_preferences: {}
     })

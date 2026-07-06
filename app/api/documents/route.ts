@@ -45,6 +45,7 @@ const documentUpdateSchema = z.object({
   expiresAt: z.string().nullable().optional(),
   pinnedInCrisis: z.boolean().optional(),
   tags: z.array(z.string()).max(5).optional(),
+  dismissSuggestions: z.boolean().optional(),
   archive: z.boolean().optional()
 });
 
@@ -114,6 +115,10 @@ export async function POST(request: NextRequest) {
   const context = await getRequestContext(parsed.data.careCircleId, "contributor");
   if (context instanceof NextResponse) return context;
 
+  const workerUrl = process.env.WORKER_URL;
+  const workerSecret = process.env.WORKER_SHARED_SECRET;
+  const workerConfigured = Boolean(workerUrl && workerSecret);
+
   try {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -136,6 +141,7 @@ export async function POST(request: NextRequest) {
         source_name: parsed.data.sourceName ?? null,
         tags: parsed.data.tags ?? null,
         extracted_text: null,
+        processing_status: workerConfigured ? "pending" : null,
         is_private: false,
         pinned_in_crisis: parsed.data.pinnedInCrisis,
         deleted_at: null
@@ -165,6 +171,26 @@ export async function POST(request: NextRequest) {
       linkedObjectId: document.id
     });
 
+    // Kick off background OCR + extraction (§1/§2). We await only the worker's fast 202 ack;
+    // the client polls processing_status. A missing or failing worker never blocks the upload.
+    if (workerConfigured && workerUrl && workerSecret) {
+      try {
+        const response = await fetch(`${workerUrl.replace(/\/$/, "")}/process-document`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-worker-secret": workerSecret },
+          body: JSON.stringify({ documentId: document.id, careCircleId: document.care_circle_id }),
+          signal: AbortSignal.timeout(8000)
+        });
+        if (!response.ok) throw new Error(`Worker responded ${response.status}`);
+      } catch {
+        await supabase
+          .from("documents")
+          .update({ processing_status: "failed" })
+          .eq("id", document.id)
+          .eq("care_circle_id", document.care_circle_id);
+      }
+    }
+
     return NextResponse.json({ document });
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
@@ -190,6 +216,7 @@ export async function PATCH(request: NextRequest) {
     if (parsed.data.expiresAt !== undefined) updatePayload.expires_at = parsed.data.expiresAt;
     if (parsed.data.pinnedInCrisis !== undefined) updatePayload.pinned_in_crisis = parsed.data.pinnedInCrisis;
     if (parsed.data.tags !== undefined) updatePayload.tags = parsed.data.tags;
+    if (parsed.data.dismissSuggestions) updatePayload.ai_suggestions_dismissed_at = new Date().toISOString();
     if (parsed.data.archive) updatePayload.deleted_at = new Date().toISOString();
 
     const { data, error } = await supabase

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadError } from "@/components/ui/load-error";
+import { SuggestionBanner } from "@/components/documents/suggestion-banner";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { DocumentType, Folder, HydratedDocument } from "@/lib/types";
@@ -124,6 +125,19 @@ function DocumentsContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentParam, activeCircle?.careCircle.id, activeCircle?.person?.id]);
 
+  // While any document is still being OCR'd/extracted, poll until it settles.
+  useEffect(() => {
+    const anyProcessing = documents.some(
+      (document) => document.processing_status === "pending" || document.processing_status === "processing"
+    );
+    if (!anyProcessing) return;
+    const timer = setTimeout(() => {
+      void loadDocuments();
+    }, 4000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documents]);
+
   const systemFolders = useMemo(() => folders.filter((folder) => folder.folder_type === "system"), [folders]);
   const userFolders = useMemo(() => folders.filter((folder) => folder.folder_type === "user_created"), [folders]);
 
@@ -191,7 +205,7 @@ function DocumentsContent() {
           )}
         </section>
 
-        <DocumentDetail key={selected?.id ?? "none"} document={selected} folders={folders} onReload={async () => { await loadFolders(); await loadDocuments(); }} />
+        <DocumentDetail key={selected?.id ?? "none"} document={selected} folders={folders} currentUserId={activeCircle.membership.user_id} canApply={activeCircle.membership.role === "owner" || activeCircle.membership.role === "coordinator" || activeCircle.membership.role === "contributor"} personName={activeCircle.person.preferred_name ?? activeCircle.person.first_name} onReload={async () => { await loadFolders(); await loadDocuments(); }} />
       </div>
 
       {modalOpen ? (
@@ -237,13 +251,12 @@ function DocumentRow({ document, selected, folders, onSelect, onReload }: { docu
       <FileText className="h-5 w-5 text-neutral-500" />
       <div className="min-w-0">
         <p className="truncate font-semibold text-neutral-900">{document.title}</p>
-        {document.tags && document.tags.length > 0 ? (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {document.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">{tag}</span>
-            ))}
-          </div>
-        ) : null}
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <ProcessingBadge document={document} />
+          {(document.tags ?? []).slice(0, 3).map((tag) => (
+            <span key={tag} className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs text-neutral-600">{tag}</span>
+          ))}
+        </div>
       </div>
       <Badge variant="neutral">{labelize(document.document_type ?? "other")}</Badge>
       <span className="text-neutral-600">{document.folder?.name ?? "No folder"}</span>
@@ -258,7 +271,7 @@ function DocumentCard({ document, selected, onSelect }: { document: HydratedDocu
   return <button className={cn("rounded-lg border border-neutral-200 p-4 text-left hover:bg-neutral-50", selected && "border-blue-600 bg-blue-50")} onClick={onSelect}><FileText className="h-6 w-6 text-neutral-500" /><p className="mt-3 font-semibold text-neutral-900">{document.title}</p><p className="mt-1 text-sm text-neutral-500">{document.folder?.name ?? "No folder"}</p></button>;
 }
 
-function DocumentDetail({ document, folders, onReload }: { document: HydratedDocument | null; folders: Folder[]; onReload: () => Promise<void> }) {
+function DocumentDetail({ document, folders, currentUserId, personName, canApply, onReload }: { document: HydratedDocument | null; folders: Folder[]; currentUserId: string; personName: string; canApply: boolean; onReload: () => Promise<void> }) {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -299,7 +312,11 @@ function DocumentDetail({ document, folders, onReload }: { document: HydratedDoc
   };
   return (
     <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-4">
-      <h2 className="text-md font-semibold text-neutral-900">{document.title}</h2>
+      <div className="flex items-start justify-between gap-2">
+        <h2 className="text-md font-semibold text-neutral-900">{document.title}</h2>
+        <ProcessingBadge document={document} />
+      </div>
+      <SuggestionBanner document={document} personName={personName} currentUserId={currentUserId} canApply={canApply} onReload={onReload} />
       <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 p-3">
         {fileUrl ? (
           isImage ? (
@@ -412,6 +429,19 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function Meta({ label, value }: { label: string; value: string }) {
   return <div className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-neutral-500">{label}</dt><dd className="font-medium text-neutral-800">{value}</dd></div>;
+}
+
+function ProcessingBadge({ document }: { document: HydratedDocument }) {
+  if (document.processing_status === "pending" || document.processing_status === "processing") {
+    return <Badge variant="yellow">Processing</Badge>;
+  }
+  if (document.processing_status === "failed") {
+    return <Badge variant="red">Failed</Badge>;
+  }
+  if (document.extracted_text) {
+    return <Badge variant="green">Indexed</Badge>;
+  }
+  return null;
 }
 
 function isExpiring(value: string | null): boolean {

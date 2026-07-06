@@ -8,7 +8,9 @@ export default async function ProtectedAppLayout({
   children: React.ReactNode;
 }>) {
   const user = await getCurrentUser();
-  const profile = await getOrCreateProfile(user.id, user.email ?? null);
+  const displayName = typeof user.user_metadata.name === "string" ? user.user_metadata.name : null;
+  const avatarUrl = typeof user.user_metadata.avatar_url === "string" ? user.user_metadata.avatar_url : null;
+  const profile = await getOrCreateProfile(user.id, user.email ?? null, displayName, avatarUrl);
   const circles = await getCircleSummariesForUser(user.id);
 
   if (circles.length === 0) {

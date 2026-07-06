@@ -39,24 +39,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  const displayName =
-    typeof user.user_metadata.name === "string"
-      ? user.user_metadata.name
-      : user.email?.split("@")[0] ?? "Vigil User";
-  const avatarUrl = typeof user.user_metadata.avatar_url === "string" ? user.user_metadata.avatar_url : null;
-
-  await supabase.from("users_profiles").upsert(
-    {
-      id: user.id,
-      display_name: displayName,
-      avatar_url: avatarUrl,
-      phone: null,
-      timezone: "UTC",
-      notification_preferences: {}
-    },
-    { onConflict: "id", ignoreDuplicates: true }
-  );
-
+  // Profile creation is handled once on entry by the (app) layout's getOrCreateProfile —
+  // no per-request write here (this middleware runs on every navigation and every API call).
   if (isLogin) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/dashboard";

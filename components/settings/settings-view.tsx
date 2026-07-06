@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadError } from "@/components/ui/load-error";
+import { AiSettings } from "@/components/settings/ai-settings";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { roleLabel } from "@/lib/permissions/roles";
 import type { EscalationAction, EscalationRule, EscalationTriggerType, MemberSummary, Role } from "@/lib/types";
@@ -147,6 +148,8 @@ export function SettingsView() {
           </>
         )}
       </section>
+
+      <AiSettings careCircleId={activeCircle.careCircle.id} canManage={canManage} />
 
       {modalOpen ? (
         <RuleModal

@@ -1,9 +1,9 @@
-.next
 node_modules
+.next
+.git
 .env
 .env.local
 .env.*.local
 *.tsbuildinfo
-__pycache__/
-*.pyc
+transcription
 .claude

@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Lock, Plus, StickyNote } from "lucide-react";
+import { Lock, Mic, Plus, Sparkles, StickyNote, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
 import { ConflictModal } from "@/components/ui/conflict-modal";
+import { VoiceRecorder } from "@/components/notes/voice-recorder";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import type { HydratedNote, Note } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
+
+const TRANSCRIPTION_ENABLED = process.env.NEXT_PUBLIC_TRANSCRIPTION_ENABLED === "true";
 
 export function NotesView() {
   const { activeCircle } = useActiveCircle();
@@ -19,6 +22,8 @@ export function NotesView() {
   const [currentRole, setCurrentRole] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [taskSuggest, setTaskSuggest] = useState<{ noteId: string; suggestions: string[] } | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
 
   const load = async (isCancelled?: () => boolean) => {
     if (!activeCircle?.person) return;
@@ -45,6 +50,31 @@ export function NotesView() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
+
+  // §5: after a note is saved, ask the server for implied tasks; show a non-blocking toast.
+  const fetchTaskSuggestions = async (noteId: string) => {
+    if (!activeCircle?.person || !noteId) return;
+    // Adding a task requires contributor+ — skip suggestions for lower roles.
+    if (!["owner", "coordinator", "contributor"].includes(currentRole)) return;
+    const response = await fetch("/api/ai/note-task-suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ careCircleId: activeCircle.careCircle.id, personId: activeCircle.person.id, noteId })
+    });
+    if (!response.ok) return;
+    const json = (await response.json()) as { suggestions?: string[] };
+    const suggestions = json.suggestions ?? [];
+    if (suggestions.length > 0) {
+      setPanelOpen(false);
+      setTaskSuggest({ noteId, suggestions });
+    }
+  };
+
+  useEffect(() => {
+    if (!taskSuggest || panelOpen) return;
+    const timer = setTimeout(() => setTaskSuggest(null), 8000);
+    return () => clearTimeout(timer);
+  }, [taskSuggest, panelOpen]);
 
   if (!activeCircle?.person) return null;
 
@@ -83,9 +113,36 @@ export function NotesView() {
           careCircleId={activeCircle.careCircle.id}
           personId={activeCircle.person.id}
           onClose={() => setModalOpen(false)}
-          onSaved={async () => {
+          onSaved={async (noteId) => {
             setModalOpen(false);
             await load();
+            void fetchTaskSuggestions(noteId);
+          }}
+        />
+      ) : null}
+
+      {taskSuggest && !panelOpen ? (
+        <div className="fixed inset-x-0 bottom-6 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-lg">
+          <Sparkles className="h-4 w-4 shrink-0 text-blue-600" aria-hidden="true" />
+          <p className="flex-1 text-sm text-neutral-700">We noticed some possible tasks in your note.</p>
+          <button className="text-sm font-semibold text-blue-600 hover:underline" onClick={() => setPanelOpen(true)}>
+            Show suggestions
+          </button>
+          <button aria-label="Dismiss" className="text-neutral-400 hover:text-neutral-700" onClick={() => setTaskSuggest(null)}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+      {taskSuggest && panelOpen ? (
+        <TaskSuggestionsPanel
+          careCircleId={activeCircle.careCircle.id}
+          personId={activeCircle.person.id}
+          noteId={taskSuggest.noteId}
+          suggestions={taskSuggest.suggestions}
+          onClose={() => {
+            setTaskSuggest(null);
+            setPanelOpen(false);
           }}
         />
       ) : null}
@@ -212,22 +269,135 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
   );
 }
 
-function NoteModal({ careCircleId, personId, onClose, onSaved }: { careCircleId: string; personId: string; onClose: () => void; onSaved: () => Promise<void> }) {
+function NoteModal({ careCircleId, personId, onClose, onSaved }: { careCircleId: string; personId: string; onClose: () => void; onSaved: (noteId: string) => Promise<void> }) {
   const [content, setContent] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [transcribed, setTranscribed] = useState(false);
   const save = async () => {
     const response = await fetch("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ careCircleId, personId, content, isPrivate }) });
-    if (response.ok) await onSaved();
+    if (response.ok) {
+      const json = (await response.json()) as { note?: { id: string } };
+      await onSaved(json.note?.id ?? "");
+    }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Add Note</h2>
-        <textarea className="mt-4 min-h-40 w-full rounded border border-neutral-300 p-3 text-base" value={content} onChange={(event) => setContent(event.target.value)} />
+        {TRANSCRIPTION_ENABLED ? (
+          <div className="mt-3">
+            {showRecorder ? (
+              <VoiceRecorder
+                careCircleId={careCircleId}
+                onClose={() => setShowRecorder(false)}
+                onTranscribed={(text) => {
+                  setContent((previous) => (previous.trim() ? `${previous}\n${text}` : text));
+                  setShowRecorder(false);
+                  setTranscribed(true);
+                }}
+              />
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => setShowRecorder(true)}>
+                <Mic className="h-4 w-4" aria-hidden="true" />
+                Record voice note
+              </Button>
+            )}
+          </div>
+        ) : null}
+        {transcribed ? <p className="mt-3 text-sm text-neutral-500">Here&apos;s what we heard — edit before saving:</p> : null}
+        <textarea className={`${transcribed ? "mt-2" : "mt-4"} min-h-40 w-full rounded border border-neutral-300 p-3 text-base`} value={content} onChange={(event) => setContent(event.target.value)} />
         <label className="mt-3 flex items-center gap-2 text-sm font-medium text-neutral-700"><input type="checkbox" checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} /> Private note</label>
         <div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!content.trim()}>Save</Button></div>
       </div>
+    </div>
+  );
+}
+
+function TaskSuggestionsPanel({
+  careCircleId,
+  personId,
+  noteId,
+  suggestions,
+  onClose
+}: {
+  careCircleId: string;
+  personId: string;
+  noteId: string;
+  suggestions: string[];
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-neutral-900/40 p-4 sm:items-center">
+      <div className="w-full max-w-md rounded-lg bg-white p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-md font-semibold text-neutral-900">Suggested tasks</h2>
+          <button aria-label="Close" className="text-neutral-400 hover:text-neutral-700" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-1 text-sm text-neutral-500">Add any that are useful — each links back to your note.</p>
+        <div className="mt-4 space-y-2">
+          {suggestions.map((suggestion, index) => (
+            <SuggestedTaskRow key={index} title={suggestion} careCircleId={careCircleId} personId={personId} noteId={noteId} />
+          ))}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button variant="ghost" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SuggestedTaskRow({
+  title: initialTitle,
+  careCircleId,
+  personId,
+  noteId
+}: {
+  title: string;
+  careCircleId: string;
+  personId: string;
+  noteId: string;
+}) {
+  const [title, setTitle] = useState(initialTitle);
+  const [added, setAdded] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const add = async () => {
+    setBusy(true);
+    const response = await fetch("/api/tasks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ careCircleId, personId, title: title.trim(), linkedObjectType: "note", linkedObjectId: noteId })
+    });
+    setBusy(false);
+    if (response.ok) setAdded(true);
+  };
+
+  if (added) {
+    return (
+      <div className="flex items-center justify-between rounded-md border border-neutral-200 px-2 py-1.5 text-sm">
+        <span className="text-neutral-700">{title}</span>
+        <Badge variant="green">Added</Badge>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        className="h-9 flex-1 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-900 focus:border-blue-600 focus:outline-none"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+      />
+      <Button size="sm" onClick={() => void add()} disabled={busy || !title.trim()}>
+        Add as task
+      </Button>
     </div>
   );
 }
