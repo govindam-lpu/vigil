@@ -171,7 +171,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
           </div>
           {error ? <LoadError message={error} onRetry={reload} /> : null}
           {changes && changes.totalTimelineEntries > 0 ? (
-            <ChangesCallout changes={changes} careCircleId={activeCircle.careCircle.id} onCaughtUp={() => setChanges(null)} />
+            <ChangesCallout changes={changes} careCircleId={activeCircle.careCircle.id} personId={person.id} onCaughtUp={() => setChanges(null)} />
           ) : null}
           <EmptyState icon={FileText} title="No activity recorded yet." body="Updates, tasks, and notes will appear here." />
           <EmptyState icon={CheckSquare} title="No tasks yet." body="Tasks make it clear who is responsible for what and when." />
@@ -492,12 +492,32 @@ function ObservationModal({
 function ChangesCallout({
   changes,
   careCircleId,
+  personId,
   onCaughtUp
 }: {
   changes: DashboardChanges;
   careCircleId: string;
+  personId: string;
   onCaughtUp: () => void;
 }) {
+  const [summary, setSummary] = useState<string | null>(null);
+  const [showBullets, setShowBullets] = useState(false);
+
+  // §4: when the member has been away > 48h with > 5 new events and a provider is configured,
+  // the server returns an AI prose summary; otherwise this stays null and we render the bullets.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const response = await fetch(`/api/ai/summary?careCircleId=${careCircleId}&personId=${personId}`);
+      if (!response.ok) return;
+      const json = (await response.json()) as { eligible?: boolean; summary?: string | null };
+      if (!cancelled && json.eligible && json.summary) setSummary(json.summary);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [careCircleId, personId]);
+
   const markCaughtUp = async () => {
     await fetch("/api/dashboard/changes", {
       method: "PATCH",
@@ -507,25 +527,42 @@ function ChangesCallout({
     onCaughtUp();
   };
 
+  const bullets = (
+    <div className="mt-3 space-y-2 text-sm">
+      <Link href="/timeline" className="block font-medium text-blue-700 hover:underline">
+        {changes.totalTimelineEntries} new timeline entries
+      </Link>
+      <Link href="/tasks" className="block font-medium text-blue-700 hover:underline">
+        {changes.tasksCompleted} tasks completed / {changes.tasksMissed} tasks missed
+      </Link>
+      <Link href="/documents" className="block font-medium text-blue-700 hover:underline">
+        {changes.newDocuments} new documents
+      </Link>
+      <Link href="/notes" className="block font-medium text-blue-700 hover:underline">
+        {changes.notesAdded} notes added
+      </Link>
+    </div>
+  );
+
   return (
     <div className="border-l-4 border-l-blue-600 bg-blue-50 p-4">
       <h3 className="text-base font-semibold text-neutral-900">
         Since your last visit ({relativeTime(changes.lastCaughtUpAt)}):
       </h3>
-      <div className="mt-3 space-y-2 text-sm">
-        <Link href="/timeline" className="block font-medium text-blue-700 hover:underline">
-          {changes.totalTimelineEntries} new timeline entries
-        </Link>
-        <Link href="/tasks" className="block font-medium text-blue-700 hover:underline">
-          {changes.tasksCompleted} tasks completed / {changes.tasksMissed} tasks missed
-        </Link>
-        <Link href="/documents" className="block font-medium text-blue-700 hover:underline">
-          {changes.newDocuments} new documents
-        </Link>
-        <Link href="/notes" className="block font-medium text-blue-700 hover:underline">
-          {changes.notesAdded} notes added
-        </Link>
-      </div>
+      {summary ? (
+        <>
+          <p className="mt-3 whitespace-pre-wrap text-sm text-neutral-800">{summary}</p>
+          <button
+            className="mt-2 text-sm font-medium text-blue-700 hover:underline"
+            onClick={() => setShowBullets((value) => !value)}
+          >
+            {showBullets ? "Hide activity list" : "Show full activity list"}
+          </button>
+          {showBullets ? bullets : null}
+        </>
+      ) : (
+        bullets
+      )}
       <Button className="mt-3" size="sm" variant="secondary" onClick={markCaughtUp}>
         Mark as caught up
       </Button>

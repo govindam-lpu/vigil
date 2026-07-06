@@ -74,6 +74,11 @@ export type EscalationTriggerType =
   | "custom";
 export type EscalationAction = "notify_role" | "notify_user" | "notify_emergency_contact";
 
+// Phase 3 — AI-Assisted Capture
+export type AiProvider = "anthropic" | "gemini" | "managed";
+export type AiFeature = "extraction" | "summary" | "note_task_suggestion";
+export type DocumentProcessingStatus = "pending" | "processing" | "indexed" | "failed";
+
 export type UserProfile = {
   id: string;
   display_name: string;
@@ -290,6 +295,9 @@ export type Document = {
   source_name: string | null;
   tags: string[] | null;
   extracted_text: string | null;
+  ai_suggestions: DocumentAiSuggestions | null;
+  ai_suggestions_dismissed_at: string | null;
+  processing_status: DocumentProcessingStatus | null;
   is_private: boolean;
   pinned_in_crisis: boolean;
   deleted_at: string | null;
@@ -422,6 +430,63 @@ export type CrisisModeSession = {
   summary: string | null;
   members_notified: string[] | null;
   created_at: string;
+};
+
+export type ExtractedAppointment = {
+  date: string | null;
+  provider: string | null;
+  location: string | null;
+  notes: string | null;
+};
+
+export type ExtractedMedication = {
+  name: string | null;
+  dosage: string | null;
+  frequency: string | null;
+  instructions: string | null;
+};
+
+export type DocumentAiSuggestions = {
+  appointments: ExtractedAppointment[];
+  medications: ExtractedMedication[];
+  follow_up_tasks: string[];
+  expiry_date: string | null;
+};
+
+export type AiProviderConfig = {
+  id: string;
+  care_circle_id: string;
+  provider: AiProvider | null;
+  encrypted_key: string | null;
+  key_last4: string | null;
+  gemini_free_tier_ack: boolean;
+  model_overrides: Json | null;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AiUsageLog = {
+  id: string;
+  care_circle_id: string;
+  provider: string;
+  feature: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  est_cost: number;
+  latency_ms: number | null;
+  succeeded: boolean;
+  created_at: string;
+};
+
+export type CareCircleSummary = {
+  id: string;
+  care_circle_id: string;
+  generated_for_user_id: string;
+  generated_at: string;
+  summary_text: string;
+  events_covered: Json | null;
 };
 
 export type SearchResult = {
