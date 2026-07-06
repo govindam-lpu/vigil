@@ -43,7 +43,8 @@ Deploy the **repo** (the worker imports `../lib/ai`, so it isn't self-contained)
 - **Railway / Render:** build `npm ci`, start `npm run worker`, set the env vars from
   `.env.example`. Point the Next app's `WORKER_URL` at the service URL and set the same
   `WORKER_SHARED_SECRET` on both.
-- **Fly.io:** add a Dockerfile that copies the repo, runs `npm ci`, and `CMD ["npm","run","worker"]`.
+- **Fly.io / any Docker host:** use the included `worker/Dockerfile` — build from the repo root:
+  `docker build -f worker/Dockerfile -t vigil-worker .`
 
 Required env: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `AI_KEY_ENC_SECRET` (identical to
 the app), `WORKER_SHARED_SECRET`. Optional: `MANAGED_AI_ENABLED` + `MANAGED_ANTHROPIC_API_KEY`, `PORT`.
