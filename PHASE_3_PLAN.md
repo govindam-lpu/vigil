@@ -145,8 +145,22 @@ All AI output is a **user-confirmed suggestion** — nothing is auto-committed t
    Could gate the apply UI by role later.
 9. Cost estimator's `summaries30d` is a heuristic (`members × 4`); no historical summary count to project from.
 
-### 3b (deferred)
-- [ ] §3 voice notes: self-hosted Whisper service + record→transcribe→review→save-as-Note
+### 3b — Voice notes (built 2026-07-05)
+- [x] `transcription/` — faster-whisper Python service (FastAPI): `POST /transcribe` (shared-secret),
+  in-memory transcribe-and-discard, model preloaded, Dockerfile + README + .env.example.
+- [x] `POST /api/ai/transcribe` — membership-checked proxy → forwards audio to the service; graceful
+  "Transcription failed — please type your note instead." on any failure.
+- [x] `VoiceRecorder` (MediaRecorder → red pulsing dot + timer + Stop → transcribe) wired into the
+  Add-Note flow behind `NEXT_PUBLIC_TRANSCRIPTION_ENABLED`; "Here's what we heard — edit before saving".
+- Env: `TRANSCRIPTION_URL` + `TRANSCRIPTION_SHARED_SECRET` (Next) + `NEXT_PUBLIC_TRANSCRIPTION_ENABLED`;
+  service: `TRANSCRIPTION_SHARED_SECRET`, `WHISPER_MODEL` (default `base`). No new migration (a voice
+  note is a normal Note). Not built: real-time transcription, speaker detection, live captions.
+- Runtime choice: **faster-whisper Python service** (user-selected) — a second standalone service
+  alongside the Node OCR worker; audio is transient and never leaves our infra (no Groq).
+- **Tested (2026-07-05):** faster-whisper transcribed a TTS audio sample correctly ("…cardiology
+  follow-up appointment next Tuesday and refill the metformin prescription") via the same
+  `model.transcribe` path the service uses. Not runtime-tested: browser mic capture + the live
+  Next→service round-trip (need the service deployed + a real microphone).
 
 ## Testing (2026-07-05) — live, with the circle's real Gemini key
 

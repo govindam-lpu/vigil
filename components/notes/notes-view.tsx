@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Lock, Plus, Sparkles, StickyNote, X } from "lucide-react";
+import { Lock, Mic, Plus, Sparkles, StickyNote, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
 import { ConflictModal } from "@/components/ui/conflict-modal";
+import { VoiceRecorder } from "@/components/notes/voice-recorder";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import type { HydratedNote, Note } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
+
+const TRANSCRIPTION_ENABLED = process.env.NEXT_PUBLIC_TRANSCRIPTION_ENABLED === "true";
 
 export function NotesView() {
   const { activeCircle } = useActiveCircle();
@@ -269,6 +272,8 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
 function NoteModal({ careCircleId, personId, onClose, onSaved }: { careCircleId: string; personId: string; onClose: () => void; onSaved: (noteId: string) => Promise<void> }) {
   const [content, setContent] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
+  const [showRecorder, setShowRecorder] = useState(false);
+  const [transcribed, setTranscribed] = useState(false);
   const save = async () => {
     const response = await fetch("/api/notes", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ careCircleId, personId, content, isPrivate }) });
     if (response.ok) {
@@ -281,7 +286,28 @@ function NoteModal({ careCircleId, personId, onClose, onSaved }: { careCircleId:
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
       <div className="w-full max-w-lg rounded-lg bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Add Note</h2>
-        <textarea className="mt-4 min-h-40 w-full rounded border border-neutral-300 p-3 text-base" value={content} onChange={(event) => setContent(event.target.value)} />
+        {TRANSCRIPTION_ENABLED ? (
+          <div className="mt-3">
+            {showRecorder ? (
+              <VoiceRecorder
+                careCircleId={careCircleId}
+                onClose={() => setShowRecorder(false)}
+                onTranscribed={(text) => {
+                  setContent((previous) => (previous.trim() ? `${previous}\n${text}` : text));
+                  setShowRecorder(false);
+                  setTranscribed(true);
+                }}
+              />
+            ) : (
+              <Button size="sm" variant="secondary" onClick={() => setShowRecorder(true)}>
+                <Mic className="h-4 w-4" aria-hidden="true" />
+                Record voice note
+              </Button>
+            )}
+          </div>
+        ) : null}
+        {transcribed ? <p className="mt-3 text-sm text-neutral-500">Here&apos;s what we heard — edit before saving:</p> : null}
+        <textarea className={`${transcribed ? "mt-2" : "mt-4"} min-h-40 w-full rounded border border-neutral-300 p-3 text-base`} value={content} onChange={(event) => setContent(event.target.value)} />
         <label className="mt-3 flex items-center gap-2 text-sm font-medium text-neutral-700"><input type="checkbox" checked={isPrivate} onChange={(event) => setIsPrivate(event.target.checked)} /> Private note</label>
         <div className="mt-5 flex justify-end gap-2"><Button variant="ghost" onClick={onClose}>Cancel</Button><Button onClick={save} disabled={!content.trim()}>Save</Button></div>
       </div>
