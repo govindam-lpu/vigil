@@ -2,7 +2,9 @@
 
 Branch: `hardening-pass` (off Phase 5 HEAD `e532907`). All four static gates green
 (`typecheck` / `lint` / `build` / `typecheck:worker`). Live-verified in-browser with the
-test account. **Two migrations are authored but NOT applied — the user applies them.**
+test account. **Migrations `202607080009` + `202607080010` APPLIED to remote (2026-07-08) and
+re-probed end-to-end: all 4 escalations now blocked (`P0001` from the trigger guards), 0 VULN,
+every legitimate flow intact.** `migration list` local == remote through `202607080010`.
 
 ## Method
 - **Static review** — four scoped subagents (route authz/zod; secrets/crypto/signed-URLs;
@@ -99,10 +101,8 @@ user content; the full export correctly excludes other members' private notes (R
 ---
 
 ## Pending user actions
-1. **Apply the two migrations** (author-only per standing rules):
-   `npx supabase db push --db-url "<SESSION_POOLER>"` → applies `202607080009` + `202607080010`.
-   Then re-run the live probe to confirm the exploits are closed end-to-end. *(Verified logic via
-   rolled-back transaction; the app runs correctly without them — they add DB enforcement.)*
+1. ~~Apply the two migrations~~ — **DONE (2026-07-08):** `supabase db push` applied `202607080009`
+   + `202607080010`; the live probe was re-run and all 4 escalations are now blocked (0 VULN).
 2. **Rotate `SUPABASE_SERVICE_ROLE_KEY`** — still pending (shared in chat). Used only by `worker/` +
    the Edge Function; never the web app.
 3. **Plan the Next 16 upgrade** (`npm audit fix --force`) as a pre-deploy task with regression tests.
