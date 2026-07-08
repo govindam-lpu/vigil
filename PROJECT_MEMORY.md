@@ -19,13 +19,11 @@ Use this as the short-form memory for a new session.
 
 ## Current Status
 
-- Phase 0 complete. Phase 1 complete. **Phase 2 (Care Operations) complete — built, applied, verified, committed, pushed (2026-07-04).**
-- **Do NOT start Phase 3 until the user gives the explicit Phase 3 prompt.**
-- **Migration `202607040001_phase_2_care_operations.sql` APPLIED to remote** (session-pooler `db push`); `migration list` = local == remote for all six. Direct schema spot-check 11/11.
-- **Static gates green** (typecheck / lint / build, 38/38 pages). **Authenticated e2e PASSED 16/16** (signed in as the real test account via supabase-js): RLS inserts allowed for the correct roles on every new table; the 3 new timeline enums + `medication_refill` reminder enum accepted via real writes; `complete_task` RPC returns done AND spawns the recurring +1wk instance; write into a non-member circle rejected; all test rows cleaned up. NOT browser-tested: the Next route handlers + React UI (build-verified only, low risk).
-- **On GitHub** (`github.com/govindam-lpu/vigil`): `phase-2-checkpoint` (`0d3fb53`) pushed. Merge into `main` via **PR #3** (https://github.com/govindam-lpu/vigil/pull/new/phase-2-checkpoint) — remote `main` already has Phase 1 (PRs #1+#2). Local `main` (`409352f`) is stale vs remote.
-- Dev command: `npm run dev -- --hostname 127.0.0.1 --port 3000`.
-- Verify with `npm run typecheck`, `npm run lint`, `npm run build` (all pass).
+- **Phases 0–3 COMPLETE, all merged to `main` (2026-07-08).** Do NOT start Phase 4 until the user gives the explicit Phase 4 prompt.
+- **Phase 3 (AI-Assisted Capture):** 3a (BYOK AI — Anthropic + Gemini provider abstraction, AES-256-GCM key storage, OCR worker, doc extraction→suggestions, dashboard summary, note→task) + 3b (voice notes via self-hosted faster-whisper). Migration `202607050001_phase_3_ai_capture.sql` APPLIED. Full record in `PHASE_3_PLAN.md`; deploy runbook in `DEPLOYMENT.md`.
+- **Verified live:** Gemini extraction/summary/note-task; full OCR pipeline on a real PDF (worker); faster-whisper on a TTS sample. Static gates green (typecheck / lint / build + `npm run typecheck:worker`).
+- **App is now 3 deployables** — Next app + `worker/` (Node OCR) + `transcription/` (Python Whisper) — but **NOTHING is deployed: hosting DEFERRED to after all phases** (user's call). App runs locally against remote Supabase.
+- Dev command: `npm run dev -- --hostname 127.0.0.1 --port 3000`. Worker: `npm run worker`. Verify: `npm run typecheck`, `npm run lint`, `npm run build`, `npm run typecheck:worker` (all pass).
 
 ## Completed Phase 0
 
@@ -69,6 +67,14 @@ Use this as the short-form memory for a new session.
 - Scope decisions the user made: build inert crisis_mode_sessions table; INCLUDE symptom/observation logging (README P2 item the spec omitted; observations table designed here); INCLUDE medication_administration_logs.
 - Deviations: reminder recurrence NOT built (task recurrence only); escalation firing + handoff role-elevation auto-revert deferred to Phase 4; recurrence-on-completion lives in the `complete_task` RPC (RLS-safe for caregivers) not the API; medications not added to global search; caregiver task-*description* edit 403s silently (completion works).
 
+## Completed Phase 3 (2026-07-05..08) — migration `202607050001`
+
+- **3a (BYOK AI):** provider abstraction (`lib/ai/*`: Anthropic + Gemini, thinking-off, JSON-normalize), AES-256-GCM BYOK key storage (`ai_provider_configs`, member-scoped `get_ai_runtime_config` accessor), per-circle 20/hr rate limit + `ai_usage_logs`, cost estimator, AI settings screen (Gemini health-data ack gate).
+- **§1 OCR** `worker/` (Node, `unpdf` + `tesseract.js`) + `POST /api/documents` trigger + Indexed/Processing/Failed badges + `search_phase1` over `extracted_text`. **§2** extraction → suggestion banner (appointments/meds/tasks/expiry; nothing auto-committed). **§4** dashboard AI summary (`care_circle_summaries` cache). **§5** note→task toast/panel. **§6** reminders via existing create endpoints.
+- **3b (voice):** `transcription/` (Python, faster-whisper) + `POST /api/ai/transcribe` proxy + `VoiceRecorder` in Add Note (gated by `NEXT_PUBLIC_TRANSCRIPTION_ENABLED`).
+- New tables (RLS, no DELETE): `ai_provider_configs`, `ai_usage_logs`, `care_circle_summaries`; `documents` +`ai_suggestions`/`ai_suggestions_dismissed_at`/`processing_status`.
+- Deviations: BYOK/provider-abstraction/cost/managed-flag net-new vs README; `claude-sonnet-5` default (not `4-6`); self-hosted Whisper (not "on-device"); `unpdf` (not `pdf-parse`); §2 meds via inline review form; DB rate-limit (no Redis); removed a per-request `users_profiles` upsert from middleware (perf). Full list in `PHASE_3_PLAN.md`.
+
 ## Remaining Known Deviations (flagged, not fixed)
 
 - `caregiver` complete-tasks: **DONE in Phase 2** (`complete_task` RPC).
@@ -78,5 +84,5 @@ Use this as the short-form memory for a new session.
 
 ## Next Step
 
-Phase 2 is complete, applied, and verified. **Do not build anything until the user gives the explicit Phase 3 prompt** (Phase 3 = AI-Assisted Capture: OCR, voice notes, document extraction, suggested tasks/reminders — cross-check any spec against README "Phase 3" and flag scope before writing code). Optional before Phase 3: merge PR #3 (phase-2-checkpoint → main); rotate the DB password shared in chat; address flagged debt if desired.
+Phases 0–3 are complete, verified, and merged to `main`. **Do not build anything until the user gives the explicit Phase 4 prompt** (Phase 4 = Crisis & Continuity Mode: crisis-mode UI, Emergency Packet export, offline caching, continuity handoff — cross-check any spec against README "Phase 4 — Crisis and Continuity Mode" + DESIGN "Crisis Mode Design" and flag scope before writing code). **Hosting/deployment is intentionally DEFERRED to after all phases** — see `DEPLOYMENT.md`. Standing test login in `.env.local` (`VIGIL_TEST_EMAIL`/`VIGIL_TEST_PASSWORD`).
 
