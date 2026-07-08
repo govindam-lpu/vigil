@@ -71,6 +71,12 @@ export async function POST(request: NextRequest) {
   const context = await getCapabilityContext(parsed.data.careCircleId, "notes.write");
   if (context instanceof NextResponse) return context;
 
+  // Creating a private note requires the distinct notes.private capability, so an
+  // override that revokes it is actually enforced (not just a UI toggle).
+  if (parsed.data.isPrivate && !context.capabilities.has("notes.private")) {
+    return NextResponse.json({ error: "You do not have permission to create private notes." }, { status: 403 });
+  }
+
   try {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -144,6 +150,10 @@ export async function PATCH(request: NextRequest) {
 
     if (parsed.data.pinnedInCrisis !== undefined && !roleMeetsMinimum(context.membership.role, "coordinator")) {
       return NextResponse.json({ error: "Only coordinators can pin notes to crisis." }, { status: 403 });
+    }
+
+    if (parsed.data.isPrivate === true && !context.capabilities.has("notes.private")) {
+      return NextResponse.json({ error: "You do not have permission to make notes private." }, { status: 403 });
     }
 
     // Optimistic-lock conflict detection on content edits (DESIGN: conflict resolution).

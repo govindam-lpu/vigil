@@ -2,7 +2,7 @@
 
 import { AlertTriangle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ActivateCrisisModal } from "@/components/crisis/activate-crisis-modal";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Avatar } from "@/components/ui/avatar";
@@ -35,25 +35,24 @@ export function TopBar({ profile, email }: TopBarProps) {
   const role = activeCircle?.membership.role;
   const canActivateCrisis = Boolean(role && roleMeetsMinimum(role, "coordinator"));
 
-  useEffect(() => {
-    if (!activeCircle?.person || query.trim().length < 2) {
+  // Search on submit (Enter), not per keystroke — the previous debounced effect fired a
+  // full /search navigation + /api/search fetch on every character (min-length 2), which
+  // is what made typing an email hit the API repeatedly. The /search page keeps its own
+  // live refine. Global search defaults to the active Person (spec: within-Person scope).
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmed = query.trim();
+    if (!activeCircle?.person || trimmed.length < 2) {
       return;
     }
-
-    const timeoutId = window.setTimeout(() => {
-      // Global search defaults to the active Person (spec: within-Person scope
-      // by default; the Search page has its own cross-circle toggle).
-      const params = new URLSearchParams({
-        q: query.trim(),
-        careCircleId: activeCircle.careCircle.id,
-        personId: activeCircle.person?.id ?? "",
-        all: "false"
-      });
-      router.push(`/search?${params.toString()}`);
-    }, 300);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [activeCircle?.careCircle.id, activeCircle?.person, activeCircle?.person?.id, query, router]);
+    const params = new URLSearchParams({
+      q: trimmed,
+      careCircleId: activeCircle.careCircle.id,
+      personId: activeCircle.person.id,
+      all: "false"
+    });
+    router.push(`/search?${params.toString()}`);
+  };
 
   const signOut = async () => {
     const supabase = createClient();
@@ -78,16 +77,19 @@ export function TopBar({ profile, email }: TopBarProps) {
         <PersonSwitcher />
       </div>
       <div className="flex items-center gap-2">
-        <label className="hidden h-10 items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-500 focus-within:border-blue-600 md:flex">
-          <Search className="h-4 w-4" aria-hidden="true" />
-          <input
-            aria-label="Search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search"
-            className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:w-80"
-          />
-        </label>
+        <form role="search" onSubmit={submitSearch} className="hidden md:block">
+          <label className="flex h-10 items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 text-sm text-neutral-500 focus-within:border-blue-600">
+            <Search className="h-4 w-4" aria-hidden="true" />
+            <input
+              aria-label="Search"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search (press Enter)"
+              className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:w-80"
+            />
+          </label>
+        </form>
         {!crisisMode && canActivateCrisis ? (
           <button
             type="button"

@@ -13,7 +13,11 @@ const handoffSchema = z.object({
   personId: z.string().uuid(),
   summary: z.string().min(1),
   recipientId: z.string().uuid(),
-  until: z.string().nullable().optional(),
+  until: z
+    .string()
+    .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid end date")
+    .nullable()
+    .optional(),
   elevateRole: z.boolean().optional()
 });
 

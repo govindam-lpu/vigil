@@ -41,6 +41,10 @@ function parseIcsDate(value: string): string | null {
   return null;
 }
 
+// Cap parsed events so a hostile file full of empty VEVENTs can't blow up memory even if
+// it slips past the route-level byte cap. 1000 is far above any real personal calendar.
+const MAX_EVENTS = 1000;
+
 export function parseIcs(text: string): CalendarEvent[] {
   // Unfold continuation lines (RFC 5545: a leading space/tab continues the prior line).
   const unfolded = text.replace(/\r?\n[ \t]/g, "");
@@ -63,6 +67,7 @@ export function parseIcs(text: string): CalendarEvent[] {
         });
       }
       current = null;
+      if (events.length >= MAX_EVENTS) break;
       continue;
     }
     if (!current) continue;

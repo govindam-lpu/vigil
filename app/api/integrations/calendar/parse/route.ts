@@ -4,17 +4,28 @@ import { getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { matchCareEvents, parseIcs } from "@/lib/calendar/ics";
 import { createClient } from "@/lib/supabase/server";
 
+// Cap the .ics payload (~1 MB of calendar text) so a hostile upload can't exhaust
+// server memory/CPU while parsing. Hosting is deferred, so we can't rely on a platform
+// body limit.
+const MAX_ICS_BYTES = 1_000_000;
+
 const bodySchema = z.object({
   careCircleId: z.string().uuid(),
   personId: z.string().uuid(),
-  icsText: z.string().min(1),
-  keywords: z.array(z.string()).default([])
+  icsText: z.string().min(1).max(MAX_ICS_BYTES),
+  keywords: z.array(z.string().max(200)).max(50).default([])
 });
 
 // POST /api/integrations/calendar/parse — parse an uploaded .ics and return the events
 // (next 90 days) that look care-related (match a contact name or a keyword). Any member
 // can preview; importing requires appointments.write.
 export async function POST(request: NextRequest) {
+  // Reject oversized uploads before buffering/parsing the body.
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_ICS_BYTES + 100_000) {
+    return NextResponse.json({ error: "Calendar file is too large." }, { status: 413 });
+  }
+
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid calendar payload" }, { status: 400 });

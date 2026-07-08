@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { AiSettings } from "@/components/settings/ai-settings";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
@@ -30,6 +31,7 @@ export function SettingsView() {
   const [rules, setRules] = useState<EscalationRule[]>([]);
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
 
   const role = activeCircle?.membership.role;
@@ -52,6 +54,8 @@ export function SettingsView() {
     } catch {
       if (isCancelled?.()) return;
       setError("We couldn't load escalation rules. Check your connection and try again.");
+    } finally {
+      if (!isCancelled?.()) setIsLoading(false);
     }
   };
 
@@ -114,7 +118,9 @@ export function SettingsView() {
             ) : null}
 
             <div className="mt-4 space-y-3">
-              {rules.length === 0 ? (
+              {isLoading ? (
+                <SkeletonRows rows={2} />
+              ) : rules.length === 0 ? (
                 <Card>
                   <p className="text-sm text-neutral-600">No escalation rules yet. Add one to define how missed items are surfaced.</p>
                 </Card>

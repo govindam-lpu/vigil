@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getRequestContext } from "@/lib/api/server";
+import { createOAuthState } from "@/lib/integrations/oauth-state";
 
 // GET /api/integrations/calendar/google/connect?careCircleId= — start the Google OAuth
 // consent flow (calendar.readonly). Requires GOOGLE_CLIENT_ID + GOOGLE_REDIRECT_URI.
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
   url.searchParams.set("scope", "https://www.googleapis.com/auth/calendar.readonly");
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
-  url.searchParams.set("state", careCircleId as string);
+  // Signed state bound to this user (anti-CSRF); the callback verifies it.
+  url.searchParams.set("state", createOAuthState(careCircleId as string, context.userId));
 
   return NextResponse.redirect(url.toString());
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { encryptSecret } from "@/lib/ai/crypto";
 import { getAuthenticatedUserId } from "@/lib/api/server";
+import { verifyOAuthState } from "@/lib/integrations/oauth-state";
 import { checkMembership } from "@/lib/permissions/checkMembership";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,8 +25,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(settingsUrl);
   }
 
+  // Verify the signed state is unexpired and was issued to THIS user (anti-CSRF); the
+  // careCircleId comes from the verified payload, never from an attacker-supplied value.
+  const verifiedState = verifyOAuthState(state, userId);
+  if (!verifiedState) {
+    settingsUrl.searchParams.set("error", "invalid_state");
+    return NextResponse.redirect(settingsUrl);
+  }
+  const careCircleId = verifiedState.careCircleId;
+
   try {
-    await checkMembership(userId, state, "emergency");
+    await checkMembership(userId, careCircleId, "emergency");
   } catch {
     settingsUrl.searchParams.set("error", "not_a_member");
     return NextResponse.redirect(settingsUrl);
@@ -65,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
     const payload: Record<string, string | null> = {
-      care_circle_id: state,
+      care_circle_id: careCircleId,
       user_id: userId,
       provider: "google",
       encrypted_access_token: encryptSecret(tokens.access_token),

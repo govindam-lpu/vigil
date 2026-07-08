@@ -8,6 +8,13 @@ import { relativeTime } from "@/lib/utils";
 
 type NotificationsResponse = { notifications: Notification[]; unreadCount: number };
 
+// action_url is attacker-influenceable: create_notification is a member-callable RPC, so
+// a member could set an off-site or javascript: URL. Only ever navigate to a same-origin
+// relative path ("/..." but not "//host").
+function isSafeInternalUrl(url: string | null | undefined): url is string {
+  return typeof url === "string" && url.startsWith("/") && !url.startsWith("//");
+}
+
 function dateGroup(iso: string): string {
   const date = new Date(iso);
   const today = new Date();
@@ -62,7 +69,7 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
       }).catch(() => undefined);
     }
     setOpen(false);
-    if (notification.action_url) {
+    if (isSafeInternalUrl(notification.action_url)) {
       router.push(notification.action_url);
     }
   };
