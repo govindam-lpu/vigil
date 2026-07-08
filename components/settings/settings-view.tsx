@@ -9,9 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadError } from "@/components/ui/load-error";
 import { AiSettings } from "@/components/settings/ai-settings";
+import { SettingsNav } from "@/components/settings/settings-nav";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { roleLabel } from "@/lib/permissions/roles";
-import type { EscalationAction, EscalationRule, EscalationTriggerType, MemberSummary, Role } from "@/lib/types";
+import type { EscalationAction, EscalationRule, EscalationTriggerType, Json, MemberSummary, Role } from "@/lib/types";
 
 const TRIGGER_TYPES: EscalationTriggerType[] = ["task_missed", "reminder_unacknowledged", "checkin_skipped", "custom"];
 const ACTIONS: EscalationAction[] = ["notify_role", "notify_user", "notify_emergency_contact"];
@@ -77,7 +78,8 @@ export function SettingsView() {
 
   return (
     <div className="mx-auto max-w-[1280px] p-6">
-      <div className="sticky top-14 z-20 -mx-2 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
+      <SettingsNav />
+      <div className="mt-4">
         <h1 className="text-lg font-semibold text-neutral-900">Settings</h1>
         <p className="text-sm text-neutral-500">Care circle configuration.</p>
       </div>
@@ -148,6 +150,13 @@ export function SettingsView() {
           </>
         )}
       </section>
+
+      <MembershipExpirySection
+        key={activeCircle.careCircle.id}
+        careCircleId={activeCircle.careCircle.id}
+        initialPolicy={readExpiryPolicy(activeCircle.careCircle.settings)}
+        canManage={canManage}
+      />
 
       <AiSettings careCircleId={activeCircle.careCircle.id} canManage={canManage} />
 
@@ -308,6 +317,90 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="mb-1 block text-sm font-medium text-neutral-700">{label}</span>
       {children}
     </label>
+  );
+}
+
+type ExpiryPolicy = "downgrade" | "remove";
+
+function readExpiryPolicy(settings: Json): ExpiryPolicy {
+  if (settings && typeof settings === "object" && !Array.isArray(settings)) {
+    const value = (settings as Record<string, Json | undefined>).expiry_policy;
+    if (value === "remove") return "remove";
+  }
+  return "downgrade";
+}
+
+function MembershipExpirySection({
+  careCircleId,
+  initialPolicy,
+  canManage
+}: {
+  careCircleId: string;
+  initialPolicy: ExpiryPolicy;
+  canManage: boolean;
+}) {
+  const [policy, setPolicy] = useState<ExpiryPolicy>(initialPolicy);
+  const [saving, setSaving] = useState(false);
+
+  const save = async (next: ExpiryPolicy) => {
+    setPolicy(next);
+    setSaving(true);
+    try {
+      await fetch("/api/care-circles", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ careCircleId, expiryPolicy: next })
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="mt-8">
+      <h2 className="text-md font-semibold text-neutral-900">Temporary Access</h2>
+      <p className="text-sm text-neutral-500">
+        What happens when a member&apos;s temporary access expires. Enforced automatically each day.
+      </p>
+      {canManage ? (
+        <Card className="mt-4 max-w-xl space-y-3">
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="radio"
+              name="expiry-policy"
+              className="mt-1 accent-blue-600"
+              checked={policy === "downgrade"}
+              disabled={saving}
+              onChange={() => void save("downgrade")}
+            />
+            <span>
+              <span className="font-medium text-neutral-900">Set to Viewer</span>
+              <br />
+              <span className="text-neutral-500">Keep the member with read-only access.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="radio"
+              name="expiry-policy"
+              className="mt-1 accent-blue-600"
+              checked={policy === "remove"}
+              disabled={saving}
+              onChange={() => void save("remove")}
+            />
+            <span>
+              <span className="font-medium text-neutral-900">Remove from circle entirely</span>
+              <br />
+              <span className="text-neutral-500">Revoke the member&apos;s access to this care circle.</span>
+            </span>
+          </label>
+        </Card>
+      ) : (
+        <Card className="mt-4">
+          <p className="text-sm text-neutral-600">Only coordinators and owners can change this setting.</p>
+        </Card>
+      )}
+    </section>
   );
 }
 

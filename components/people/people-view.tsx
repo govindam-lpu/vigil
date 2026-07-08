@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Star, UserCog } from "lucide-react";
+import { MapPin, Plus, Star, UserCog } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,24 @@ import { ConflictModal } from "@/components/ui/conflict-modal";
 import { LoadError } from "@/components/ui/load-error";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { roleLabel } from "@/lib/permissions/roles";
-import type { Contact, ContactRole, MemberSummary, Person } from "@/lib/types";
+import type {
+  Contact,
+  ContactRole,
+  HouseholdType,
+  HydratedHousehold,
+  MemberSummary,
+  Person
+} from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
+
+const HOUSEHOLD_TYPES: HouseholdType[] = [
+  "primary_residence",
+  "secondary_residence",
+  "facility",
+  "clinic",
+  "hospital",
+  "other"
+];
 
 const CONTACT_ROLES: ContactRole[] = [
   "doctor",
@@ -56,6 +72,7 @@ export function PeopleView() {
   const { activeCircle } = useActiveCircle();
   const [members, setMembers] = useState<MemberSummary[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [households, setHouseholds] = useState<HydratedHousehold[]>([]);
   const [person, setPerson] = useState<Person | null>(activeCircle?.person ?? null);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,18 +84,22 @@ export function PeopleView() {
     if (!activeCircle?.person) return;
     try {
       setError(null);
-      const [memberResponse, contactResponse, personResponse] = await Promise.all([
+      const [memberResponse, contactResponse, personResponse, householdResponse] = await Promise.all([
         fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
         fetch(`/api/contacts?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-        fetch(`/api/persons?careCircleId=${activeCircle.careCircle.id}`)
+        fetch(`/api/persons?careCircleId=${activeCircle.careCircle.id}`),
+        fetch(`/api/households?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
       ]);
-      if (!memberResponse.ok || !contactResponse.ok || !personResponse.ok) throw new Error("Request failed");
+      if (!memberResponse.ok || !contactResponse.ok || !personResponse.ok || !householdResponse.ok)
+        throw new Error("Request failed");
       const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
       const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
       const personJson = (await personResponse.json()) as { person?: Person | null };
+      const householdJson = (await householdResponse.json()) as { households?: HydratedHousehold[] };
       if (isCancelled?.()) return;
       setMembers(memberJson.members ?? []);
       setContacts(contactJson.contacts ?? []);
+      setHouseholds(householdJson.households ?? []);
       if (personJson.person) setPerson(personJson.person);
     } catch {
       if (isCancelled?.()) return;
@@ -128,6 +149,16 @@ export function PeopleView() {
         careCircleId={activeCircle.careCircle.id}
         personId={activeCircle.person.id}
         canWrite={canWriteContacts}
+        onReload={load}
+      />
+
+      <HouseholdsSection
+        households={households}
+        contacts={contacts}
+        careCircleId={activeCircle.careCircle.id}
+        personId={activeCircle.person.id}
+        canWrite={canWriteContacts}
+        canManageAccessNotes={canEditProfile}
         onReload={load}
       />
     </div>
@@ -480,6 +511,247 @@ function ContactModal({
           <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
             <input type="checkbox" checked={isPrimary} onChange={(event) => setIsPrimary(event.target.checked)} /> Primary contact
           </label>
+        </div>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={save} disabled={!name.trim()}>
+            Save
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HouseholdsSection({
+  households,
+  contacts,
+  careCircleId,
+  personId,
+  canWrite,
+  canManageAccessNotes,
+  onReload
+}: {
+  households: HydratedHousehold[];
+  contacts: Contact[];
+  careCircleId: string;
+  personId: string;
+  canWrite: boolean;
+  canManageAccessNotes: boolean;
+  onReload: () => Promise<void>;
+}) {
+  const [modalHousehold, setModalHousehold] = useState<HydratedHousehold | "new" | null>(null);
+
+  const remove = async (household: HydratedHousehold) => {
+    await fetch("/api/households", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: household.id, careCircleId, personId, archive: true })
+    });
+    await onReload();
+  };
+
+  return (
+    <section className="mt-6 rounded-lg border border-neutral-200 bg-white">
+      <div className="flex items-center justify-between border-b border-neutral-200 p-4">
+        <div>
+          <h2 className="text-md font-semibold text-neutral-900">Locations</h2>
+          <p className="text-sm text-neutral-500">Homes and facilities associated with this person.</p>
+        </div>
+        {canWrite ? (
+          <Button size="sm" onClick={() => setModalHousehold("new")}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Add Location
+          </Button>
+        ) : null}
+      </div>
+
+      {households.length === 0 ? (
+        <p className="p-4 text-sm text-neutral-600">
+          No locations yet. Add a home or facility with its address and access notes.
+        </p>
+      ) : (
+        <div className="grid gap-4 p-4 sm:grid-cols-2">
+          {households.map((household) => (
+            <div key={household.id} className="rounded-lg border border-neutral-200 p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">{household.name}</p>
+                  <Badge variant="neutral" className="mt-1">
+                    {labelize(household.type)}
+                  </Badge>
+                </div>
+                {canWrite ? (
+                  <select
+                    aria-label="Location actions"
+                    className="h-8 rounded-md border border-neutral-200 bg-white px-2 text-sm text-neutral-500"
+                    value=""
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "edit") setModalHousehold(household);
+                      if (value === "delete") void remove(household);
+                      event.target.value = "";
+                    }}
+                  >
+                    <option value="">…</option>
+                    <option value="edit">Edit</option>
+                    <option value="delete">Delete</option>
+                  </select>
+                ) : null}
+              </div>
+
+              {household.address ? (
+                <p className="mt-2 flex items-start gap-1 text-sm text-neutral-600">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-neutral-400" aria-hidden="true" />
+                  {household.address}
+                </p>
+              ) : null}
+
+              {household.linked_contacts.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {household.linked_contacts.map((contact) => (
+                    <Badge key={contact.id} variant="neutral">
+                      {contact.name}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="mt-3 border-t border-neutral-100 pt-2">
+                <p className="text-xs font-medium text-neutral-500">Access notes</p>
+                {household.access_restricted ? (
+                  <p className="text-sm text-neutral-400">Access notes restricted</p>
+                ) : household.access_notes ? (
+                  <p className="whitespace-pre-wrap text-sm text-neutral-700">{household.access_notes}</p>
+                ) : (
+                  <p className="text-sm text-neutral-400">None</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modalHousehold ? (
+        <HouseholdModal
+          careCircleId={careCircleId}
+          personId={personId}
+          household={modalHousehold === "new" ? null : modalHousehold}
+          contacts={contacts}
+          canManageAccessNotes={canManageAccessNotes}
+          onClose={() => setModalHousehold(null)}
+          onSaved={async () => {
+            setModalHousehold(null);
+            await onReload();
+          }}
+        />
+      ) : null}
+    </section>
+  );
+}
+
+function HouseholdModal({
+  careCircleId,
+  personId,
+  household,
+  contacts,
+  canManageAccessNotes,
+  onClose,
+  onSaved
+}: {
+  careCircleId: string;
+  personId: string;
+  household: HydratedHousehold | null;
+  contacts: Contact[];
+  canManageAccessNotes: boolean;
+  onClose: () => void;
+  onSaved: () => Promise<void>;
+}) {
+  const [name, setName] = useState(household?.name ?? "");
+  const [type, setType] = useState<HouseholdType>(household?.type ?? "primary_residence");
+  const [address, setAddress] = useState(household?.address ?? "");
+  const [linkedContactIds, setLinkedContactIds] = useState<string[]>(household?.linked_contact_ids ?? []);
+  const [accessNotes, setAccessNotes] = useState(household?.access_notes ?? "");
+
+  const toggleContact = (id: string) =>
+    setLinkedContactIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]));
+
+  const save = async () => {
+    const payload: Record<string, unknown> = {
+      careCircleId,
+      personId,
+      name,
+      type,
+      address: address || null,
+      linkedContactIds
+    };
+    // Only include accessNotes when the user can manage them — otherwise the API
+    // rejects the whole request (access notes are coordinator+ only).
+    if (canManageAccessNotes) {
+      payload.accessNotes = accessNotes || null;
+    }
+    const response = await fetch("/api/households", {
+      method: household ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(household ? { id: household.id, ...payload } : payload)
+    });
+    if (response.ok) await onSaved();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5">
+        <h2 className="text-md font-semibold text-neutral-900">{household ? "Edit Location" : "Add Location"}</h2>
+        <div className="mt-4 space-y-3">
+          <Field label="Name (required)">
+            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Maple Hill Assisted Living" />
+          </Field>
+          <Field label="Type">
+            <select
+              className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3"
+              value={type}
+              onChange={(event) => setType(event.target.value as HouseholdType)}
+            >
+              {HOUSEHOLD_TYPES.map((item) => (
+                <option key={item} value={item}>
+                  {labelize(item)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Address">
+            <Input value={address} onChange={(event) => setAddress(event.target.value)} />
+          </Field>
+          {contacts.length > 0 ? (
+            <Field label="Linked contacts">
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-neutral-200 p-2">
+                {contacts.map((contact) => (
+                  <label key={contact.id} className="flex items-center gap-2 text-sm text-neutral-700">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-blue-600"
+                      checked={linkedContactIds.includes(contact.id)}
+                      onChange={() => toggleContact(contact.id)}
+                    />
+                    {contact.name}
+                  </label>
+                ))}
+              </div>
+            </Field>
+          ) : null}
+          {canManageAccessNotes ? (
+            <Field label="Access notes (door codes, key location — coordinators only)">
+              <textarea
+                className="min-h-16 w-full rounded border border-neutral-300 p-2 text-sm"
+                value={accessNotes}
+                onChange={(event) => setAccessNotes(event.target.value)}
+              />
+            </Field>
+          ) : (
+            <p className="text-sm text-neutral-400">Access notes can only be edited by coordinators.</p>
+          )}
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>

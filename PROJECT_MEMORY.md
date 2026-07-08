@@ -19,7 +19,7 @@ Use this as the short-form memory for a new session.
 
 ## Current Status
 
-- **Phases 0–4 COMPLETE, all merged to `main` (2026-07-08).** Do NOT start Phase 5 until the user gives the explicit Phase 5 prompt.
+- **Phases 0–5 ALL COMPLETE + merged to `main` (2026-07-08).** Phase 5 = Advanced Collaboration (`PHASE_5_PLAN.md`); migrations `202607080003`–`202607080008` authored + applied (new session: confirm via `npx supabase migration list`). **No more feature phases.** **Next: a security-audit + performance + bug-fix hardening pass, then redesign — full brief in `NEXT_SESSION_HANDOFF.md`.**
 - **Phase 4 (Crisis & Continuity):** crisis-mode UI lens, Emergency Packet PDF, in-app notifications + pg_cron reminder job, offline service worker. Migrations `202607080001` (APPLIED, pg_cron enabled) + `202607080002` (reminder-job hardening — confirm applied). Live e2e 36/37. Full record in `PHASE_4_PLAN.md`.
 - **Phase 3 (AI-Assisted Capture):** 3a (BYOK AI — Anthropic + Gemini provider abstraction, AES-256-GCM key storage, OCR worker, doc extraction→suggestions, dashboard summary, note→task) + 3b (voice notes via self-hosted faster-whisper). Migration `202607050001_phase_3_ai_capture.sql` APPLIED. Full record in `PHASE_3_PLAN.md`; deploy runbook in `DEPLOYMENT.md`.
 - **Verified live:** Gemini extraction/summary/note-task; full OCR pipeline on a real PDF (worker); faster-whisper on a TTS sample. Static gates green (typecheck / lint / build + `npm run typecheck:worker`).
@@ -91,7 +91,21 @@ Use this as the short-form memory for a new session.
 - Pre-existing Phase 1 dashboard gap: center column still shows static empty states (Upcoming/Open tasks/recent activity not wired to real data); Documents stat still `-`.
 - Notification *delivery* (email/push/SMS) unbuilt — reminders are just rows. Notes not in primary sidebar (matches DESIGN nav); `task_comments` append-only; TanStack Query unused; minor RLS edges (see HANDOVER).
 
+## Completed Phase 5 (2026-07-08) — migrations `202607080003`–`202607080008` (authored, await apply)
+
+- **Advanced Collaboration** on `phase-5-checkpoint`. Full record: `PHASE_5_PLAN.md`.
+- §1 multi-circle UX (`/workspaces` + switcher metadata); §3 additive capability layer + per-membership permission overrides (Settings→Members) enforced on resource-write/crisis/circle.settings/export routes; §2 external delivery (per-category/channel prefs + `create_notification` for assign/handoff + Deno delivery Edge Function for Resend/FCM — authored, not deployed); §4 analytics (coordinator-only SQL aggregates + Recharts); §5 export (JSON zip + Care Summary PDF); §6 calendar import (.ics built; Google OAuth authored/unverifiable; no write-back); §7 daily pg_cron lifecycle (expiry downgrade/remove + handoff-elevation revert; `memberships.deleted_at`); §8 multi-household (Locations tab; access notes coordinator-only via DB-enforced companion table).
+- New deps: `jszip`, `recharts`. Excluded per spec: SMS, Gmail import, Drive/Dropbox sync, calendar write-back. Deviations + tech debt: `PHASE_5_PLAN.md`.
+
 ## Next Step
 
-Phases 0–4 are complete, verified, and merged to `main`. **Do not build anything until the user gives the explicit Phase 5 prompt** (Phase 5 = Advanced Collaboration: multi-circle UX + workspace switcher, granular per-record permissions, workload/accountability analytics, full care-history export PDF/JSON, calendar + email/Drive integrations, notification channel prefs email/SMS/push, multi-household — cross-check any spec against README "Phase 5 — Advanced Collaboration" and flag scope before writing code). Groundwork already shipped: app is architecturally multi-circle; Phase 4 gave the in-app notification center + a pg_cron job runner (Phase 5 adds *external* channels + prefs on top). **Hosting/deployment is intentionally DEFERRED to after all phases** — see `DEPLOYMENT.md`; `service_role` key still needs rotating before deploy. Standing test login in `.env.local` (`VIGIL_TEST_EMAIL`/`VIGIL_TEST_PASSWORD`).
+**All 6 phases (0–5) complete + merged to `main`.** **Next session = hardening pass (NOT features):** security
+audit of the whole app (authorization/RLS cross-circle + capability-override enforcement, private-notes +
+household access-notes isolation, auth/401, XSS + `.ics` parser, secrets/crypto incl. the Google OAuth
+`state` CSRF gap, `npm audit`) — test via API **and** direct PostgREST under a user JWT — plus performance
+(slow tab switching → adopt the installed-but-unused TanStack Query + skeletons; the Settings "no details
+found" loading-flash; ~1s `/api/search`; N+1s; heavy Recharts bundle) and bug fixes. **Then** a DESIGN
+redesign pass on the Phase 5 UI. Full brief: **`NEXT_SESSION_HANDOFF.md`**. Then deployment (see
+`DEPLOYMENT.md` "Phase 5 (done)": rotate `service_role`, deploy the notification Edge Function +Resend/FCM,
+Google OAuth client, client FCM, staging). Older note (superseded): (Phase 5 = Advanced Collaboration: multi-circle UX + workspace switcher, granular per-record permissions, workload/accountability analytics, full care-history export PDF/JSON, calendar + email/Drive integrations, notification channel prefs email/SMS/push, multi-household — cross-check any spec against README "Phase 5 — Advanced Collaboration" and flag scope before writing code). Groundwork already shipped: app is architecturally multi-circle; Phase 4 gave the in-app notification center + a pg_cron job runner (Phase 5 adds *external* channels + prefs on top). **Hosting/deployment is intentionally DEFERRED to after all phases** — see `DEPLOYMENT.md`; `service_role` key still needs rotating before deploy. Standing test login in `.env.local` (`VIGIL_TEST_EMAIL`/`VIGIL_TEST_PASSWORD`).
 

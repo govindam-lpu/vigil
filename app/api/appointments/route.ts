@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAuditLog } from "@/lib/api/audit";
 import { getProfilesById } from "@/lib/api/records";
-import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { getCapabilityContext, getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createTimelineEvent } from "@/lib/api/timeline";
 import { createClient } from "@/lib/supabase/server";
 import type { Appointment, AppointmentStatus, AppointmentType, HydratedAppointment, Task } from "@/lib/types";
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid appointment payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "appointments.write");
 
   if (context instanceof NextResponse) {
     return context;
@@ -152,7 +152,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid appointment update payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "appointments.write");
 
   if (context instanceof NextResponse) {
     return context;

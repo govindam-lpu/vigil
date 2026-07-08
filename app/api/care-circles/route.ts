@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { createAuditLog } from "@/lib/api/audit";
+import { getCapabilityContext, getErrorMessage } from "@/lib/api/server";
 import { getCircleSummariesForUser } from "@/lib/data/app-data";
 import { createClient } from "@/lib/supabase/server";
-import type { CareCircle, Folder, Membership, Person } from "@/lib/types";
+import type { CareCircle, Folder, Json, Membership, Person } from "@/lib/types";
 
 const createCareCircleSchema = z.object({
   careCircleName: z.string().min(1),
@@ -87,4 +89,62 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(response.data);
+}
+
+const updateSchema = z.object({
+  careCircleId: z.string().uuid(),
+  expiryPolicy: z.enum(["downgrade", "remove"]).optional()
+});
+
+// PATCH /api/care-circles — update care-circle settings (circle.settings capability).
+// Currently: the temporary-membership expiry policy (§7). Merges into settings jsonb.
+export async function PATCH(request: NextRequest) {
+  const parsed = updateSchema.safeParse(await request.json());
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid care circle update payload" }, { status: 400 });
+  }
+
+  const context = await getCapabilityContext(parsed.data.careCircleId, "circle.settings");
+  if (context instanceof NextResponse) {
+    return context;
+  }
+
+  try {
+    const supabase = createClient();
+    const { data: existing, error: readError } = await supabase
+      .from("care_circles")
+      .select("settings")
+      .eq("id", parsed.data.careCircleId)
+      .maybeSingle();
+
+    if (readError) throw new Error(readError.message);
+
+    const current = (existing?.settings ?? {}) as Record<string, Json>;
+    const nextSettings: Record<string, Json> = { ...current };
+    if (parsed.data.expiryPolicy !== undefined) {
+      nextSettings.expiry_policy = parsed.data.expiryPolicy;
+    }
+
+    const { data, error } = await supabase
+      .from("care_circles")
+      .update({ settings: nextSettings })
+      .eq("id", parsed.data.careCircleId)
+      .select("*")
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    await createAuditLog({
+      careCircleId: parsed.data.careCircleId,
+      actorId: context.userId,
+      actionType: "updated",
+      objectType: "care_circle",
+      objectId: parsed.data.careCircleId,
+      diff: { settings: nextSettings }
+    });
+
+    return NextResponse.json({ careCircle: data as CareCircle });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
 }

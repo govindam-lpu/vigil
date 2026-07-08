@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
     .from("memberships")
     .select("*")
     .eq("care_circle_id", careCircleId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
 
   if (membershipError) {

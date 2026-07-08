@@ -5,6 +5,15 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Copy bytes into a fresh, concretely-typed ArrayBuffer so the result is a valid
+// Response BodyInit (avoids the Uint8Array<ArrayBufferLike> vs ArrayBuffer friction
+// in newer TS libs). Used by the binary export/PDF routes.
+export function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
 export function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? "";

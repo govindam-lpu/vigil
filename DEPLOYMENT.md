@@ -77,6 +77,28 @@ Buildpack: build `npm ci`, start `npm run worker`. Docker: `docker build -f work
   - **No new env vars.** The web app does NOT need the service-role key for any Phase 4 feature (packet signing + notifications run under the user session / SECURITY DEFINER functions).
   - **Vercel note:** `/api/emergency-packet` is a Node function (`runtime = "nodejs"`, uses `pdfkit`) — fine on Vercel/any Node host; do not force it to the Edge runtime.
   - **Reminder-unack window** is configurable per circle via `care_circles.settings.reminder_unack_hours` (default 4).
-- **Phase 5 (TBD):** **new infra** — background job runner (escalation firing, reminder delivery),
-  notification providers (email/SMS/push — e.g. Resend/Twilio/FCM), OAuth integrations (calendar/email).
-  This is the phase most likely to want a **staging deploy** to validate. Append when built.
+- **Phase 5 (done — Advanced Collaboration):** full record in `PHASE_5_PLAN.md`. Deploy needs:
+  - **Apply migrations `202607080003` → `202607080008`** (6 files, in order): permission overrides,
+    households, analytics fn, membership-lifecycle (adds `memberships.deleted_at` + daily pg_cron
+    `vigil-enforce-membership-lifecycle` + revises the RLS access helpers), notifications, calendar.
+    **The web app's write routes query `membership_permission_overrides`, so the app is broken until
+    at least `202607080003` is applied.** pg_cron self-schedules the lifecycle job (fail-soft; schedule
+    manually if pg_cron wasn't enabled: `select cron.schedule('vigil-enforce-membership-lifecycle','0 3 * * *','select public.enforce_membership_lifecycle();');`).
+  - **New deployable — the notification delivery Edge Function** (`supabase/functions/deliver-notifications`,
+    Deno). Deploy with `supabase functions deploy deliver-notifications`. Env (function secrets):
+    `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (rotated — service role stays out of the web app),
+    `RESEND_API_KEY`, `RESEND_FROM`, `FCM_SERVER_KEY`, `DELIVER_SHARED_SECRET`. Trigger it every ~1 min via
+    pg_cron→pg_net (`select cron.schedule('deliver-notifications','* * * * *', $$select net.http_post(url:='<fn-url>', headers:=jsonb_build_object('x-deliver-secret','<secret>'))$$);`)
+    or a Supabase Database Webhook on inserts to `public.notifications`.
+  - **New deps:** `jszip`, `recharts` (`npm ci` picks them up).
+  - **New web env vars:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
+    (`<web-origin>/api/integrations/calendar/google/callback`) for Google Calendar import — **register a
+    Google Cloud OAuth client** with the `calendar.readonly` scope + that redirect URI. `AI_KEY_ENC_SECRET`
+    (already set) also encrypts the stored calendar tokens. `.ics` import needs no config.
+  - **Client push (FCM) is not wired yet:** the token-registration endpoint + `user_device_tokens` table +
+    the Edge Function's FCM send exist, but browser token acquisition (Firebase Web SDK + a messaging
+    service worker) must be added at deploy time. Email delivery works without it.
+  - **Export routes** (`/api/export/json` uses jszip, `/api/export/pdf` uses pdfkit) are Node functions
+    (`runtime = "nodejs"`) — fine on Vercel/any Node host; don't force Edge.
+  - This is the phase to stand up a **staging deploy** to validate email delivery + the Google OAuth
+    round-trip before production.

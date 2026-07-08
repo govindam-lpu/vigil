@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAuditLog } from "@/lib/api/audit";
 import { getProfilesById } from "@/lib/api/records";
-import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { getCapabilityContext, getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createTimelineEvent } from "@/lib/api/timeline";
 import { roleMeetsMinimum } from "@/lib/permissions/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
   const parsed = noteCreateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid note payload" }, { status: 400 });
 
-  const context = await getRequestContext(parsed.data.careCircleId, "caregiver");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "notes.write");
   if (context instanceof NextResponse) return context;
 
   try {
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
   const parsed = noteUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid note update payload" }, { status: 400 });
 
-  const context = await getRequestContext(parsed.data.careCircleId, "caregiver");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "notes.write");
   if (context instanceof NextResponse) return context;
 
   try {

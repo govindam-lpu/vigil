@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAuditLog } from "@/lib/api/audit";
-import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { getCapabilityContext, getErrorMessage } from "@/lib/api/server";
 import { createClient } from "@/lib/supabase/server";
 import type { EscalationRule } from "@/lib/types";
 
@@ -29,7 +29,7 @@ const ruleUpdateSchema = ruleCreateSchema.partial().extend({
 
 export async function GET(request: NextRequest) {
   const careCircleId = request.nextUrl.searchParams.get("careCircleId");
-  const context = await getRequestContext(careCircleId, "coordinator");
+  const context = await getCapabilityContext(careCircleId, "circle.settings");
 
   if (context instanceof NextResponse) {
     return context;
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid escalation rule payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "coordinator");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "circle.settings");
 
   if (context instanceof NextResponse) {
     return context;
@@ -113,7 +113,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid escalation rule update payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "coordinator");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "circle.settings");
 
   if (context instanceof NextResponse) {
     return context;
