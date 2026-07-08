@@ -47,6 +47,8 @@ export type {
   Membership,
   Note,
   NoteType,
+  Notification,
+  NotificationType,
   Observation,
   ObservationSeverity,
   ObservationType,

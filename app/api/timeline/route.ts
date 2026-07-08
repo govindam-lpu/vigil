@@ -1,9 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { createAuditLog } from "@/lib/api/audit";
 import { getProfilesById } from "@/lib/api/records";
 import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { createTimelineEvent } from "@/lib/api/timeline";
 import { createClient } from "@/lib/supabase/server";
 import type { HydratedTimelineEvent, TimelineEvent } from "@/lib/types";
+
+const timelineCreateSchema = z.object({
+  careCircleId: z.string().uuid(),
+  personId: z.string().uuid(),
+  title: z.string().min(1),
+  body: z.string().nullable().optional()
+});
 
 const timelineUpdateSchema = z.object({
   id: z.string().uuid(),
@@ -61,6 +70,48 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({ events: hydrated, hasMore: events.length === 25 });
+  } catch (error) {
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}
+
+// POST /api/timeline — record a user-authored update (a `user_entry` timeline
+// event). Caregiver+ may record updates (README: caregivers add check-ins/notes).
+export async function POST(request: NextRequest) {
+  const parsed = timelineCreateSchema.safeParse(await request.json());
+
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid timeline payload" }, { status: 400 });
+  }
+
+  const context = await getRequestContext(parsed.data.careCircleId, "caregiver");
+
+  if (context instanceof NextResponse) {
+    return context;
+  }
+
+  try {
+    const event = await createTimelineEvent({
+      careCircleId: parsed.data.careCircleId,
+      personId: parsed.data.personId,
+      eventType: "user_entry",
+      title: parsed.data.title,
+      body: parsed.data.body ?? null,
+      authorId: context.userId,
+      linkedObjectType: null,
+      linkedObjectId: null
+    });
+
+    await createAuditLog({
+      careCircleId: parsed.data.careCircleId,
+      actorId: context.userId,
+      actionType: "created",
+      objectType: "timeline_event",
+      objectId: event.id,
+      diff: { title: event.title }
+    });
+
+    return NextResponse.json({ event });
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }

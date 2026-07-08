@@ -48,10 +48,11 @@ Implemented phases (all merged to remote `main`):
 - Phase 1: complete (PRs #1 + #2)
 - Phase 2: complete — Care Operations (PR #3)
 - Phase 3: complete — **AI-Assisted Capture** (branch `phase-3-ai-capture`, merged 2026-07-08). 3a = BYOK AI (Anthropic + Gemini provider abstraction, AES-256-GCM key storage, OCR worker, doc extraction→suggestions, dashboard summary, note→task); 3b = voice notes (self-hosted faster-whisper). Migration `202607050001_phase_3_ai_capture.sql` applied. **Full Phase 3 record: `PHASE_3_PLAN.md`.**
+- Phase 4: complete — **Crisis & Continuity Mode** (branch `phase-4-checkpoint`, merged 2026-07-08). Crisis-mode UI lens, Emergency Packet PDF export, in-app notifications + reminder-delivery job (pg_cron), offline service worker. Migrations `202607080001` (applied) + `202607080002` (reminder-job hardening). Live e2e 36/37. **Full Phase 4 record: `PHASE_4_PLAN.md`.**
 
 Not started:
 
-- Phase 4 (Crisis & Continuity Mode) and Phase 5. **Do not build Phase 4 until the user gives the explicit Phase 4 prompt.**
+- Phase 5 (Advanced Collaboration). **Do not build Phase 5 until the user gives the explicit Phase 5 prompt.**
 
 **The app is now 3 deployables** — the Next web app + `worker/` (Node OCR/extraction) + `transcription/` (Python faster-whisper). **Nothing is deployed: hosting is intentionally DEFERRED to after all phases** (see `DEPLOYMENT.md`). The app runs locally (`npm run dev`) against the remote Supabase. All Supabase migrations are applied through `202607050001`. Secrets note: `AI_KEY_ENC_SECRET` lives in `.env.local`; the `service_role` key was shared in chat and **must be rotated before/at deploy**; never copy secrets into docs or commits.
 
@@ -367,18 +368,28 @@ Ran headlessly against the live project (Preview browser, logged in as the test 
 - **Caregiver note creation** — left as code+migration-verified (`can_log_care` applied; notes API min-role `caregiver`); not exercised live per the user's call.
 - Cleanup: seeded note/doc soft-deleted, timeline entries archived; one orphaned storage object remains (no user delete policy — see debt list). The `service_role` key was shared in chat but ultimately unused — **user was advised to rotate it.**
 
+## Phase 4 Completed (2026-07-08) — migrations `202607080001` + `202607080002`
+
+**Crisis & Continuity Mode.** Built + static gates green + **live e2e 36/37** (authenticated as the test account in an isolated throwaway circle, torn down clean). Migration `202607080001_phase_4_crisis_continuity.sql` **APPLIED** and **`pg_cron` enabled** (user); hardening `202607080002_harden_reminder_job.sql` authored — **confirm it is applied** (revokes `execute` on `process_due_reminders` from public/anon/authenticated so only pg_cron runs it). **Full record: `PHASE_4_PLAN.md`.**
+
+New table (RLS, no delete): `notifications` (recipient-only select/update; inserts only via SECURITY DEFINER fns). New private storage bucket `emergency-packets` (coordinator+ RLS). Enum: `timeline_events.event_type` +`crisis_activated`/+`crisis_deactivated`. SECURITY DEFINER fns: `activate_crisis_mode` / `deactivate_crisis_mode` (atomic care_circle flags + `crisis_mode_sessions` row + timeline via `create_timeline_event` + immediate notifications; deactivate writes a `note_type='handoff'` continuity note + duration) and `process_due_reminders` (reminder-delivery job, pg_cron every 5 min, **in-app only**).
+
+New API routes: `POST /api/crisis/activate|deactivate`, `GET /api/crisis/status|pending-tasks`, `POST /api/emergency-packet`, `GET|PATCH /api/notifications`, and **`POST /api/timeline`** (user_entry — backfills a Phase-1 gap). New UI: app-wide `CrisisModeProvider` (30s poll of `/api/crisis/status`) → red strip + condensed 5-item sidebar + offline banner; restructured crisis dashboard; Emergency Packet modal (pdfkit, 24h signed link); packet-only crisis Documents view; activate/deactivate modals (deactivate = summary → continuity checklist of crisis-created tasks with inline reassign); functional notification bell (60s poll). Offline: self-hosted `public/sw.js` (stale-while-revalidate for 5 critical reads + IndexedDB write-queue) registered via `workbox-window` (production-only; cleared on logout). New deps: `pdfkit`, `@types/pdfkit`, `workbox-window`.
+
+**Deviations (flagged):** crisis activation writes notifications DIRECTLY (immediate, per README) instead of a queued reminder (avoids the 5-min cron double-notifying); `notify_emergency_contact` escalation action is a no-op in-app (external channel = Phase 5); hand-authored SW instead of the full Workbox runtime (CSP-safe; avoids a build-pipeline/esbuild step that risked the green build); emergency-strip border = DESIGN `red-400` (Phase-4 prompt said `red-200`); reminder-unack window configurable via `care_circles.settings.reminder_unack_hours` (default 4). **Excluded (Phase 5):** external email/SMS/push delivery, calendar/email integrations, analytics, multi-circle UI.
+
 ## What Is Left Next
 
-Phases 0–3 are complete, verified, and merged to `main`. **Wait for the user's explicit Phase 4 prompt before building anything.**
+Phases 0–4 are complete, verified, and merged to `main`. **Wait for the user's explicit Phase 5 prompt before building anything.**
 
-Phase 4 is **Crisis and Continuity Mode** (crisis-mode UI lens; Emergency Packet — a curated, exportable PDF; pin system for crisis-visible records; export/share the packet; outage-safe offline caching of critical records; continuity handoff summary at deactivation). **Cross-check any Phase 4 prompt against README's "Phase 4 — Crisis and Continuity Mode" + DESIGN's "Crisis Mode Design" and flag out-of-scope items before writing code.** Note: `crisis_mode_sessions` + `care_circles.crisis_mode*` columns already exist as inert Phase-4 groundwork from Phase 2, and documents/contacts/notes already carry `pinned_in_crisis`.
+Phase 5 is **Advanced Collaboration** (see README "Phase 5"): first-class multi–Care-Circle UX + workspace switcher; granular per-record permission overrides; workload analytics + accountability dashboard (Coordinators/Owners only); full care-history export (PDF/JSON); calendar integration (read + write); Gmail/email appointment import; Google Drive / Dropbox document sync; notification channel preferences (email, SMS, push per category); multi-household support. **Cross-check any Phase 5 prompt against README's "Phase 5 — Advanced Collaboration" and flag out-of-scope items before writing code.** Note some groundwork already exists: the app is architecturally multi-circle (surfaced now would be UX only); Phase 4 shipped the **in-app** notification center + a **pg_cron job runner** (`process_due_reminders`) — Phase 5's notification work is the *external channels* (email/SMS/push) + preferences on top of it; escalation *firing* also runs in that job now.
 
 A prudent new session should:
 
 1. Read `README.md` and `DESIGN.md` (source of truth) — flag any later instruction that contradicts them.
-2. Read this handover + `PROJECT_MEMORY.md` + `PHASE_3_PLAN.md` (Phase 3 detail) + `DEPLOYMENT.md` (why nothing is deployed yet).
-3. Run `npm run typecheck`, `npm run lint`, `npm run build`, `npm run typecheck:worker` (all currently green).
-4. **Do NOT re-apply any migration, re-run Phase 3 e2e, or deploy anything** — Phase 3 is applied + verified; deployment is deferred to after all phases. **Do NOT build until the Phase 4 prompt arrives.**
+2. Read this handover + `PROJECT_MEMORY.md` + `PHASE_3_PLAN.md` + `PHASE_4_PLAN.md` + `DEPLOYMENT.md` (why nothing is deployed yet).
+3. Run `npm run typecheck`, `npm run lint`, `npm run build`, `npm run typecheck:worker` (all currently green). Stop any dev server before `build` if `.next/trace` is locked.
+4. **Do NOT re-apply any migration, re-run prior-phase e2e, or deploy anything** — all migrations through `202607080002` are applied/authored; deployment is deferred to after all phases. **Do NOT build until the Phase 5 prompt arrives.**
 
-Standing test login for any e2e lives in `.env.local` as `VIGIL_TEST_EMAIL` / `VIGIL_TEST_PASSWORD` (gitignored). The two backend services run locally via `npm run worker` and (Python) `uvicorn main:app` in `transcription/`; both are proven locally but not needed to build Phase 4.
+Standing test login for any e2e lives in `.env.local` as `VIGIL_TEST_EMAIL` / `VIGIL_TEST_PASSWORD` (gitignored). The `service_role` key in `.env.local` was shared in chat and **must be rotated before/at deploy** (used only for the worker + test teardown, never the web app). The two backend services run locally via `npm run worker` and (Python) `uvicorn main:app` in `transcription/`.
 
