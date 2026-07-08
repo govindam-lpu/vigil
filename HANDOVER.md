@@ -1,6 +1,6 @@
 # Vigil Handover
 
-Last updated: 2026-07-05
+Last updated: 2026-07-08
 
 This file is the project handover for a new session. Treat it as operational memory, not as a replacement for the source-of-truth specs.
 
@@ -42,17 +42,18 @@ These apply to every phase.
 
 ## Current Project State
 
-Implemented phases:
+Implemented phases (all merged to remote `main`):
 
 - Phase 0: complete
-- Phase 1: complete (merged to remote `main` via PRs #1 + #2)
-- Phase 2: complete — built, migration applied to remote, verified (static gates + authenticated e2e), committed on `phase-2-checkpoint` (`0d3fb53`) and pushed to GitHub. Open PR #3 to merge into `main`.
+- Phase 1: complete (PRs #1 + #2)
+- Phase 2: complete — Care Operations (PR #3)
+- Phase 3: complete — **AI-Assisted Capture** (branch `phase-3-ai-capture`, merged 2026-07-08). 3a = BYOK AI (Anthropic + Gemini provider abstraction, AES-256-GCM key storage, OCR worker, doc extraction→suggestions, dashboard summary, note→task); 3b = voice notes (self-hosted faster-whisper). Migration `202607050001_phase_3_ai_capture.sql` applied. **Full Phase 3 record: `PHASE_3_PLAN.md`.**
 
 Not started:
 
-- Phase 3 and beyond. **Do not build Phase 3 until the user gives the explicit Phase 3 prompt.**
+- Phase 4 (Crisis & Continuity Mode) and Phase 5. **Do not build Phase 4 until the user gives the explicit Phase 4 prompt.**
 
-The remote Supabase database has had migrations applied via the transaction pooler. The exact DB password was shared in chat but must not be copied into docs or committed. If migrations need to be pushed again, ask the user for the current secure connection string/password or use the local shell history only if explicitly appropriate.
+**The app is now 3 deployables** — the Next web app + `worker/` (Node OCR/extraction) + `transcription/` (Python faster-whisper). **Nothing is deployed: hosting is intentionally DEFERRED to after all phases** (see `DEPLOYMENT.md`). The app runs locally (`npm run dev`) against the remote Supabase. All Supabase migrations are applied through `202607050001`. Secrets note: `AI_KEY_ENC_SECRET` lives in `.env.local`; the `service_role` key was shared in chat and **must be rotated before/at deploy**; never copy secrets into docs or commits.
 
 ## Commands
 
@@ -368,16 +369,16 @@ Ran headlessly against the live project (Preview browser, logged in as the test 
 
 ## What Is Left Next
 
-Phase 2 is complete, applied, and verified. **Wait for the user’s explicit Phase 3 prompt before building anything.**
+Phases 0–3 are complete, verified, and merged to `main`. **Wait for the user's explicit Phase 4 prompt before building anything.**
 
-Phase 3 is **AI-Assisted Capture** (voice notes → transcribed notes; OCR on uploaded documents; structured extraction from discharge summaries / labs / EOBs; auto-suggested reminders and tasks — every extraction a suggestion the user accepts or discards, never auto-committed). **Cross-check any Phase 3 prompt against README's "Phase 3 — AI-Assisted Capture" and flag out-of-scope items before writing code.** The real new surface is infra that does not exist yet: a document upload → post-processing/OCR/extraction pipeline, and a model integration (Claude API).
+Phase 4 is **Crisis and Continuity Mode** (crisis-mode UI lens; Emergency Packet — a curated, exportable PDF; pin system for crisis-visible records; export/share the packet; outage-safe offline caching of critical records; continuity handoff summary at deactivation). **Cross-check any Phase 4 prompt against README's "Phase 4 — Crisis and Continuity Mode" + DESIGN's "Crisis Mode Design" and flag out-of-scope items before writing code.** Note: `crisis_mode_sessions` + `care_circles.crisis_mode*` columns already exist as inert Phase-4 groundwork from Phase 2, and documents/contacts/notes already carry `pinned_in_crisis`.
 
 A prudent new session should:
 
 1. Read `README.md` and `DESIGN.md` (source of truth) — flag any later instruction that contradicts them.
-2. Read this handover + `PROJECT_MEMORY.md`.
-3. Run `npm run typecheck`, `npm run lint`, `npm run build` (all currently green, 38/38).
-4. **Do NOT re-apply the Phase 2 migration or re-run its e2e** — already applied + verified. **Do NOT build until the Phase 3 prompt arrives.**
+2. Read this handover + `PROJECT_MEMORY.md` + `PHASE_3_PLAN.md` (Phase 3 detail) + `DEPLOYMENT.md` (why nothing is deployed yet).
+3. Run `npm run typecheck`, `npm run lint`, `npm run build`, `npm run typecheck:worker` (all currently green).
+4. **Do NOT re-apply any migration, re-run Phase 3 e2e, or deploy anything** — Phase 3 is applied + verified; deployment is deferred to after all phases. **Do NOT build until the Phase 4 prompt arrives.**
 
-Optional housekeeping before Phase 3: merge PR #3 (`phase-2-checkpoint` → `main`); rotate the DB password that was shared in chat; local `main` (`409352f`) is stale vs remote `main` (`git fetch` + reset if you rely on it). A standing test login for any e2e lives in `.env.local` as `VIGIL_TEST_EMAIL` / `VIGIL_TEST_PASSWORD` (gitignored).
+Standing test login for any e2e lives in `.env.local` as `VIGIL_TEST_EMAIL` / `VIGIL_TEST_PASSWORD` (gitignored). The two backend services run locally via `npm run worker` and (Python) `uvicorn main:app` in `transcription/`; both are proven locally but not needed to build Phase 4.
 
