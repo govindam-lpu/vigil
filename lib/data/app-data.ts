@@ -62,6 +62,7 @@ export async function getCircleSummariesForUser(userId: string): Promise<CircleS
     .from("memberships")
     .select("*")
     .eq("user_id", userId)
+    .is("deleted_at", null)
     .order("created_at", { ascending: true });
 
   if (membershipsError) {

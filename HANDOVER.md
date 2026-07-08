@@ -50,9 +50,13 @@ Implemented phases (all merged to remote `main`):
 - Phase 3: complete — **AI-Assisted Capture** (branch `phase-3-ai-capture`, merged 2026-07-08). 3a = BYOK AI (Anthropic + Gemini provider abstraction, AES-256-GCM key storage, OCR worker, doc extraction→suggestions, dashboard summary, note→task); 3b = voice notes (self-hosted faster-whisper). Migration `202607050001_phase_3_ai_capture.sql` applied. **Full Phase 3 record: `PHASE_3_PLAN.md`.**
 - Phase 4: complete — **Crisis & Continuity Mode** (branch `phase-4-checkpoint`, merged 2026-07-08). Crisis-mode UI lens, Emergency Packet PDF export, in-app notifications + reminder-delivery job (pg_cron), offline service worker. Migrations `202607080001` (applied) + `202607080002` (reminder-job hardening). Live e2e 36/37. **Full Phase 4 record: `PHASE_4_PLAN.md`.**
 
-Not started:
+- Phase 5: **BUILT on `phase-5-checkpoint`** — Advanced Collaboration. Static gates green
+  (typecheck/lint/build/typecheck:worker). **6 migrations authored (`202607080003`–`202607080008`),
+  awaiting user apply; live e2e pending apply.** Full record: `PHASE_5_PLAN.md`.
 
-- Phase 5 (Advanced Collaboration). **Do not build Phase 5 until the user gives the explicit Phase 5 prompt.**
+**IMPORTANT — the app is broken against the pre-Phase-5 DB until migrations are applied:** the
+write routes now query `membership_permission_overrides` (added by `202607080003`). Apply all six
+in order, then run the e2e.
 
 **The app is now 3 deployables** — the Next web app + `worker/` (Node OCR/extraction) + `transcription/` (Python faster-whisper). **Nothing is deployed: hosting is intentionally DEFERRED to after all phases** (see `DEPLOYMENT.md`). The app runs locally (`npm run dev`) against the remote Supabase. All Supabase migrations are applied through `202607050001`. Secrets note: `AI_KEY_ENC_SECRET` lives in `.env.local`; the `service_role` key was shared in chat and **must be rotated before/at deploy**; never copy secrets into docs or commits.
 
@@ -378,9 +382,35 @@ New API routes: `POST /api/crisis/activate|deactivate`, `GET /api/crisis/status|
 
 **Deviations (flagged):** crisis activation writes notifications DIRECTLY (immediate, per README) instead of a queued reminder (avoids the 5-min cron double-notifying); `notify_emergency_contact` escalation action is a no-op in-app (external channel = Phase 5); hand-authored SW instead of the full Workbox runtime (CSP-safe; avoids a build-pipeline/esbuild step that risked the green build); emergency-strip border = DESIGN `red-400` (Phase-4 prompt said `red-200`); reminder-unack window configurable via `care_circles.settings.reminder_unack_hours` (default 4). **Excluded (Phase 5):** external email/SMS/push delivery, calendar/email integrations, analytics, multi-circle UI.
 
+## Phase 5 Completed (2026-07-08) — migrations `202607080003`–`202607080008` (authored, await apply)
+
+**Advanced Collaboration.** Full record: `PHASE_5_PLAN.md`. Built on `phase-5-checkpoint` (off `main`).
+Multi-circle UX (`/workspaces` + switcher metadata); **additive capability layer** + per-membership
+permission overrides (Settings → Members → Manage permissions), enforced on resource-write/crisis/settings/export
+routes; external notification delivery (per-category/channel prefs + `create_notification` for task-assign/handoff
++ a Deno **delivery Edge Function** for Resend email/FCM push — authored, not deployed); workload analytics
+(coordinator-only, SQL aggregates + Recharts); care-history export (JSON zip + Care Summary PDF); calendar import
+(.ics fully built; Google OAuth authored/unverifiable; no write-back); temporary-access lifecycle (daily pg_cron:
+expiry downgrade/remove + handoff-elevation revert); multi-household (Locations tab; access notes coordinator-only
+via a DB-enforced companion table). New deps: `jszip`, `recharts`. **Excluded (per spec):** SMS, Gmail import,
+Drive/Dropbox sync, calendar write-back. Deviations + tech debt in `PHASE_5_PLAN.md`.
+
 ## What Is Left Next
 
-Phases 0–4 are complete, verified, and merged to `main`. **Wait for the user's explicit Phase 5 prompt before building anything.**
+**All six phases (0–5) are COMPLETE and merged to `main`.** No more feature phases. The next session is a
+**security-audit + performance + bug-fix (hardening) pass, then redesign prep** — full brief in
+**`NEXT_SESSION_HANDOFF.md`** (paste it as the opening prompt). Highlights:
+- **Security audit** of the whole app (authorization/RLS cross-circle + capability-override enforcement,
+  private-notes + household access-notes isolation, auth/401, XSS + `.ics` parser, secrets/crypto incl. the
+  Google OAuth `state` CSRF gap, `npm audit`). Test via API **and** direct PostgREST under a user JWT.
+- **Performance:** slow tab switching (adopt the installed-but-unused TanStack Query for client caching +
+  skeletons), the Settings "no details found" loading-flash, the ~1s `/api/search` call, N+1s
+  (`/api/workspaces`, contact hydration), the heavy Recharts bundle on `/settings/analytics`.
+- **Bug fixes** surfaced by the audit/testing.
+- **Then** a DESIGN.md conformance + redesign pass on the Phase 5 UI (do the hardening first).
+
+Deployment still pending after that (see `DEPLOYMENT.md` "Phase 5 (done)"): **rotate the `service_role` key**,
+deploy the notification Edge Function (+ Resend/FCM), register a Google OAuth client, wire client FCM, staging env.
 
 Phase 5 is **Advanced Collaboration** (see README "Phase 5"): first-class multi–Care-Circle UX + workspace switcher; granular per-record permission overrides; workload analytics + accountability dashboard (Coordinators/Owners only); full care-history export (PDF/JSON); calendar integration (read + write); Gmail/email appointment import; Google Drive / Dropbox document sync; notification channel preferences (email, SMS, push per category); multi-household support. **Cross-check any Phase 5 prompt against README's "Phase 5 — Advanced Collaboration" and flag out-of-scope items before writing code.** Note some groundwork already exists: the app is architecturally multi-circle (surfaced now would be UX only); Phase 4 shipped the **in-app** notification center + a **pg_cron job runner** (`process_due_reminders`) — Phase 5's notification work is the *external channels* (email/SMS/push) + preferences on top of it; escalation *firing* also runs in that job now.
 

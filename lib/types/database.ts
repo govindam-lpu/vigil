@@ -1,6 +1,7 @@
 import type {
   AuditLog,
   Appointment,
+  CalendarConnection,
   CheckIn,
   Contact,
   CrisisModeSession,
@@ -8,11 +9,14 @@ import type {
   CareCircle,
   EscalationRule,
   Folder,
+  Household,
+  HouseholdAccessNote,
   Invitation,
   Json,
   Medication,
   MedicationAdministrationLog,
   Membership,
+  MembershipPermissionOverride,
   Note,
   Notification,
   Observation,
@@ -22,6 +26,7 @@ import type {
   Task,
   TaskComment,
   TimelineEvent,
+  UserDeviceToken,
   UserProfile
 } from "./core";
 
@@ -61,11 +66,22 @@ export type Database = {
       };
       memberships: {
         Row: Membership;
-        Insert: InsertOf<Membership, "id" | "created_at"> & {
+        Insert: InsertOf<Membership, "id" | "created_at" | "deleted_at"> & {
           id?: string;
           created_at?: string;
+          deleted_at?: string | null;
         };
         Update: UpdateOf<Membership>;
+        Relationships: [];
+      };
+      membership_permission_overrides: {
+        Row: MembershipPermissionOverride;
+        Insert: InsertOf<MembershipPermissionOverride, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<MembershipPermissionOverride>;
         Relationships: [];
       };
       tasks: {
@@ -246,6 +262,44 @@ export type Database = {
         Update: UpdateOf<Notification>;
         Relationships: [];
       };
+      households: {
+        Row: Household;
+        Insert: InsertOf<Household, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<Household>;
+        Relationships: [];
+      };
+      household_access_notes: {
+        Row: HouseholdAccessNote;
+        Insert: InsertOf<HouseholdAccessNote, "updated_at"> & {
+          updated_at?: string;
+        };
+        Update: UpdateOf<HouseholdAccessNote>;
+        Relationships: [];
+      };
+      user_device_tokens: {
+        Row: UserDeviceToken;
+        Insert: InsertOf<UserDeviceToken, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<UserDeviceToken>;
+        Relationships: [];
+      };
+      calendar_connections: {
+        Row: CalendarConnection;
+        Insert: InsertOf<CalendarConnection, "id" | "created_at" | "updated_at"> & {
+          id?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: UpdateOf<CalendarConnection>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -319,6 +373,25 @@ export type Database = {
       };
       process_due_reminders: {
         Args: Record<string, never>;
+        Returns: undefined;
+      };
+      get_care_circle_analytics: {
+        Args: {
+          target_care_circle_id: string;
+          since_ts: string;
+        };
+        Returns: Json;
+      };
+      create_notification: {
+        Args: {
+          target_care_circle_id: string;
+          recipient_ids: string[];
+          notification_title: string;
+          notification_body: string | null;
+          notification_category: string;
+          notification_type: string;
+          action_url: string | null;
+        };
         Returns: undefined;
       };
     };

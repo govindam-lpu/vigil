@@ -106,24 +106,21 @@ export async function POST(request: NextRequest) {
       linkedObjectId: note.id
     });
 
-    const { error: reminderError } = await supabase.from("reminders").insert({
-      care_circle_id: careCircleId,
-      person_id: personId,
-      linked_object_type: "note",
-      linked_object_id: note.id,
-      reminder_type: "custom",
-      scheduled_at: new Date().toISOString(),
-      message: `Handoff from ${actorName}: ${summary}`,
+    // Immediate in-app notification for the recipient (the delivery Edge Function fans
+    // it out to email/push per their "Handoffs" preference). Replaces the prior queued
+    // reminder so the handoff lands immediately and in the correct preference category.
+    const { error: notifyError } = await supabase.rpc("create_notification", {
+      target_care_circle_id: careCircleId,
       recipient_ids: [recipientId],
-      repeat_rule: null,
-      acknowledgements: {},
-      status: "pending",
-      snooze_count: 0,
-      snooze_until: null
+      notification_title: `Handoff from ${actorName}`,
+      notification_body: summary,
+      notification_category: "handoffs",
+      notification_type: "handoff",
+      action_url: "/timeline"
     });
 
-    if (reminderError) {
-      throw new Error(reminderError.message);
+    if (notifyError) {
+      throw new Error(notifyError.message);
     }
 
     let elevated = false;

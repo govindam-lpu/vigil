@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAuditLog } from "@/lib/api/audit";
 import { getProfilesById } from "@/lib/api/records";
-import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { getCapabilityContext, getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createTimelineEvent } from "@/lib/api/timeline";
 import { createClient } from "@/lib/supabase/server";
 import type { HydratedTask, Task, TaskComment, TaskPriority, TaskStatus, UserProfile } from "@/lib/types";
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid task payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "tasks.write");
 
   if (context instanceof NextResponse) {
     return context;
@@ -144,6 +144,7 @@ export async function POST(request: NextRequest) {
     });
 
     await maybeCreateTaskReminder(task);
+    await maybeNotifyAssignee(task);
     return NextResponse.json({ task });
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
@@ -163,7 +164,7 @@ export async function PATCH(request: NextRequest) {
     return completeTask(parsed.data.id, parsed.data.careCircleId);
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "tasks.write");
 
   if (context instanceof NextResponse) {
     return context;
@@ -252,6 +253,10 @@ export async function PATCH(request: NextRequest) {
       });
     }
 
+    if (parsed.data.assigneeId) {
+      await maybeNotifyAssignee(task);
+    }
+
     return NextResponse.json({ task });
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
@@ -297,6 +302,25 @@ async function completeTask(taskId: string, careCircleId: string): Promise<NextR
   } catch (error) {
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
+}
+
+async function maybeNotifyAssignee(task: Task) {
+  // Immediate "task assigned to you" notification (delivery Edge Function fans it out
+  // per the recipient's "Task reminders" preference). create_notification never notifies
+  // the acting user, so self-assignment is silent.
+  if (!task.assignee_id) {
+    return;
+  }
+  const supabase = createClient();
+  await supabase.rpc("create_notification", {
+    target_care_circle_id: task.care_circle_id,
+    recipient_ids: [task.assignee_id],
+    notification_title: `Task assigned: ${task.title}`,
+    notification_body: task.description,
+    notification_category: "task_reminders",
+    notification_type: "assignment",
+    action_url: `/tasks?task=${task.id}`
+  });
 }
 
 async function maybeCreateTaskReminder(task: Task) {

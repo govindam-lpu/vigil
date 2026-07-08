@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAuditLog } from "@/lib/api/audit";
 import { getFoldersById, getProfilesById } from "@/lib/api/records";
-import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { getCapabilityContext, getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createTimelineEvent } from "@/lib/api/timeline";
 import { createClient } from "@/lib/supabase/server";
 import type { Document, DocumentType, HydratedDocument } from "@/lib/types";
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
   const parsed = documentCreateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid document payload" }, { status: 400 });
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "documents.upload");
   if (context instanceof NextResponse) return context;
 
   const workerUrl = process.env.WORKER_URL;
@@ -201,7 +201,7 @@ export async function PATCH(request: NextRequest) {
   const parsed = documentUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid document update payload" }, { status: 400 });
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "documents.upload");
   if (context instanceof NextResponse) return context;
 
   try {

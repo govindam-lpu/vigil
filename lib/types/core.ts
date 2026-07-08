@@ -82,7 +82,30 @@ export type AiFeature = "extraction" | "summary" | "note_task_suggestion";
 export type DocumentProcessingStatus = "pending" | "processing" | "indexed" | "failed";
 
 // Phase 4 — Crisis & Continuity Mode
-export type NotificationType = "crisis_activated" | "reminder" | "escalation";
+export type NotificationType = "crisis_activated" | "reminder" | "escalation" | "assignment" | "handoff";
+
+// Phase 5 — external notification delivery + preferences
+export type NotificationCategory =
+  | "task_reminders"
+  | "appointment_reminders"
+  | "medication_refill_reminders"
+  | "check_in_alerts"
+  | "crisis_mode"
+  | "handoffs"
+  | "new_members"
+  | "general_activity";
+export type NotificationChannel = "in_app" | "email" | "push";
+export type NotificationChannelPrefs = { in_app: boolean; email: boolean; push: boolean };
+export type NotificationPreferences = Record<NotificationCategory, NotificationChannelPrefs>;
+
+// Phase 5 — Advanced Collaboration
+export type HouseholdType =
+  | "primary_residence"
+  | "secondary_residence"
+  | "facility"
+  | "clinic"
+  | "hospital"
+  | "other";
 
 export type UserProfile = {
   id: string;
@@ -138,7 +161,17 @@ export type Membership = {
   last_caught_up_at: string | null;
   original_role: Role | null;
   elevation_expires_at: string | null;
+  deleted_at: string | null;
   created_at: string;
+};
+
+export type MembershipPermissionOverride = {
+  id: string;
+  membership_id: string;
+  capability: string;
+  granted: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Folder = {
@@ -445,10 +478,23 @@ export type Notification = {
   title: string;
   body: string | null;
   notification_type: NotificationType;
+  category: string | null;
   action_url: string | null;
   is_read: boolean;
   read_at: string | null;
+  delivery_processed_at: string | null;
+  email_sent_at: string | null;
+  push_sent_at: string | null;
   created_at: string;
+};
+
+export type UserDeviceToken = {
+  id: string;
+  user_id: string;
+  token: string;
+  platform: "web" | "ios" | "android";
+  created_at: string;
+  updated_at: string;
 };
 
 export type ExtractedAppointment = {
@@ -506,6 +552,66 @@ export type CareCircleSummary = {
   generated_at: string;
   summary_text: string;
   events_covered: Json | null;
+};
+
+export type AnalyticsRange = "30d" | "90d" | "6m";
+
+export type CareCircleAnalytics = {
+  tasks: {
+    created_completed_by_week: Array<{ week: string; created: number; completed: number }>;
+    by_assignee: Array<{ user_id: string; assigned: number; completed: number; missed: number }>;
+    overdue_by_week: Array<{ week: string; missed: number }>;
+    keywords: Array<{ word: string; count: number }>;
+  };
+  documents: {
+    uploads_by_month: Array<{ month: string; count: number }>;
+    by_type: Array<{ type: string; count: number }>;
+    expiring_90d: number;
+  };
+  activity: {
+    timeline_by_member_month: Array<{ month: string; user_id: string; count: number }>;
+    checkins_by_week: Array<{ week: string; count: number }>;
+  };
+};
+
+export type CalendarConnection = {
+  id: string;
+  care_circle_id: string;
+  user_id: string;
+  provider: "google";
+  encrypted_access_token: string | null;
+  encrypted_refresh_token: string | null;
+  token_expires_at: string | null;
+  keyword_list: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type Household = {
+  id: string;
+  care_circle_id: string;
+  person_id: string;
+  name: string;
+  type: HouseholdType;
+  address: string | null;
+  linked_contact_ids: string[];
+  deleted_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HouseholdAccessNote = {
+  household_id: string;
+  care_circle_id: string;
+  notes: string | null;
+  updated_at: string;
+};
+
+export type HydratedHousehold = Household & {
+  // access_notes is null (and access_restricted true) for members below coordinator.
+  access_notes: string | null;
+  access_restricted: boolean;
+  linked_contacts: Contact[];
 };
 
 export type SearchResult = {
@@ -573,6 +679,22 @@ export type CircleSummary = {
   careCircle: CareCircle;
   membership: Membership;
   person: Person | null;
+};
+
+export type WorkspaceSummary = {
+  careCircleId: string;
+  careCircleName: string;
+  role: Role;
+  person: {
+    first_name: string;
+    last_name: string;
+    preferred_name: string | null;
+    photo_url: string | null;
+  } | null;
+  memberCount: number;
+  openTaskCount: number;
+  unreadCount: number;
+  lastActivityAt: string | null;
 };
 
 export type MemberSummary = {

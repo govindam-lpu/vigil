@@ -1,5 +1,5 @@
-import { StubPage } from "@/components/shell/stub-page";
+import { MembersView } from "@/components/settings/members-view";
 
 export default function SettingsMembersPage() {
-  return <StubPage title="Members" />;
+  return <MembersView />;
 }

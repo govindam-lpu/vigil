@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createAuditLog } from "@/lib/api/audit";
-import { getErrorMessage, getRequestContext } from "@/lib/api/server";
+import { getCapabilityContext, getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createClient } from "@/lib/supabase/server";
 import type { Contact } from "@/lib/types";
 
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid contact payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "contacts.write");
 
   if (context instanceof NextResponse) {
     return context;
@@ -135,7 +135,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid contact update payload" }, { status: 400 });
   }
 
-  const context = await getRequestContext(parsed.data.careCircleId, "contributor");
+  const context = await getCapabilityContext(parsed.data.careCircleId, "contacts.write");
 
   if (context instanceof NextResponse) {
     return context;
