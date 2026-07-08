@@ -19,7 +19,8 @@ Use this as the short-form memory for a new session.
 
 ## Current Status
 
-- **Phases 0–3 COMPLETE, all merged to `main` (2026-07-08).** Do NOT start Phase 4 until the user gives the explicit Phase 4 prompt.
+- **Phases 0–4 COMPLETE, all merged to `main` (2026-07-08).** Do NOT start Phase 5 until the user gives the explicit Phase 5 prompt.
+- **Phase 4 (Crisis & Continuity):** crisis-mode UI lens, Emergency Packet PDF, in-app notifications + pg_cron reminder job, offline service worker. Migrations `202607080001` (APPLIED, pg_cron enabled) + `202607080002` (reminder-job hardening — confirm applied). Live e2e 36/37. Full record in `PHASE_4_PLAN.md`.
 - **Phase 3 (AI-Assisted Capture):** 3a (BYOK AI — Anthropic + Gemini provider abstraction, AES-256-GCM key storage, OCR worker, doc extraction→suggestions, dashboard summary, note→task) + 3b (voice notes via self-hosted faster-whisper). Migration `202607050001_phase_3_ai_capture.sql` APPLIED. Full record in `PHASE_3_PLAN.md`; deploy runbook in `DEPLOYMENT.md`.
 - **Verified live:** Gemini extraction/summary/note-task; full OCR pipeline on a real PDF (worker); faster-whisper on a TTS sample. Static gates green (typecheck / lint / build + `npm run typecheck:worker`).
 - **App is now 3 deployables** — Next app + `worker/` (Node OCR) + `transcription/` (Python Whisper) — but **NOTHING is deployed: hosting DEFERRED to after all phases** (user's call). App runs locally against remote Supabase.
@@ -75,6 +76,14 @@ Use this as the short-form memory for a new session.
 - New tables (RLS, no DELETE): `ai_provider_configs`, `ai_usage_logs`, `care_circle_summaries`; `documents` +`ai_suggestions`/`ai_suggestions_dismissed_at`/`processing_status`.
 - Deviations: BYOK/provider-abstraction/cost/managed-flag net-new vs README; `claude-sonnet-5` default (not `4-6`); self-hosted Whisper (not "on-device"); `unpdf` (not `pdf-parse`); §2 meds via inline review form; DB rate-limit (no Redis); removed a per-request `users_profiles` upsert from middleware (perf). Full list in `PHASE_3_PLAN.md`.
 
+## Completed Phase 4 (2026-07-08) — migrations `202607080001` + `202607080002`
+
+- **Crisis & Continuity Mode.** New table `notifications` (RLS recipient-only; inserts via SECURITY DEFINER only; no delete). New private bucket `emergency-packets` (coordinator+). Enum `timeline_events.event_type` +crisis_activated/+crisis_deactivated. SECURITY DEFINER fns `activate_crisis_mode`/`deactivate_crisis_mode` (atomic flags + `crisis_mode_sessions` + timeline via `create_timeline_event` + immediate notifications; deactivate → duration + `note_type='handoff'` continuity note) and `process_due_reminders` (reminder→notification delivery + unack re-notify + escalation firing; **pg_cron every 5 min**; in-app only).
+- APIs: `/api/crisis/activate|deactivate|status|pending-tasks`, `/api/emergency-packet`, `/api/notifications` (GET/PATCH), **`POST /api/timeline`** (user_entry). UI: app-wide `CrisisModeProvider` (30s poll) → red strip + condensed 5-item sidebar + offline banner; crisis dashboard; Emergency Packet modal (pdfkit, 24h signed link); packet-only crisis Documents; continuity-checklist deactivate; functional notification bell (60s poll). Offline: self-hosted `public/sw.js` (SWR 5 critical reads + IndexedDB write-queue) via `workbox-window` (prod-only, cleared on logout). Deps: pdfkit, @types/pdfkit, workbox-window.
+- Decisions (user chose all recommended): pg_cron + SQL job; pdfkit + linked pinned docs; spec dashboard layout; Emergency-Packet-only crisis Documents.
+- Deviations: crisis alert = immediate notifications (not a queued reminder → avoids cron double-notify); `notify_emergency_contact` no-op in-app (Phase 5); hand-authored SW (not full Workbox runtime); emergency-strip border DESIGN red-400 (prompt said red-200); reminder-unack hours in `care_circles.settings` (default 4). Added `POST /api/timeline` (backfills a Phase-1 gap).
+- **Verified:** live e2e 36/37 (authenticated test account, isolated throwaway circle, torn down clean); static gates green (typecheck/lint/build 49 pages/worker). `202607080001` APPLIED + pg_cron ON; `202607080002` (hardening) authored — confirm applied.
+
 ## Remaining Known Deviations (flagged, not fixed)
 
 - `caregiver` complete-tasks: **DONE in Phase 2** (`complete_task` RPC).
@@ -84,5 +93,5 @@ Use this as the short-form memory for a new session.
 
 ## Next Step
 
-Phases 0–3 are complete, verified, and merged to `main`. **Do not build anything until the user gives the explicit Phase 4 prompt** (Phase 4 = Crisis & Continuity Mode: crisis-mode UI, Emergency Packet export, offline caching, continuity handoff — cross-check any spec against README "Phase 4 — Crisis and Continuity Mode" + DESIGN "Crisis Mode Design" and flag scope before writing code). **Hosting/deployment is intentionally DEFERRED to after all phases** — see `DEPLOYMENT.md`. Standing test login in `.env.local` (`VIGIL_TEST_EMAIL`/`VIGIL_TEST_PASSWORD`).
+Phases 0–4 are complete, verified, and merged to `main`. **Do not build anything until the user gives the explicit Phase 5 prompt** (Phase 5 = Advanced Collaboration: multi-circle UX + workspace switcher, granular per-record permissions, workload/accountability analytics, full care-history export PDF/JSON, calendar + email/Drive integrations, notification channel prefs email/SMS/push, multi-household — cross-check any spec against README "Phase 5 — Advanced Collaboration" and flag scope before writing code). Groundwork already shipped: app is architecturally multi-circle; Phase 4 gave the in-app notification center + a pg_cron job runner (Phase 5 adds *external* channels + prefs on top). **Hosting/deployment is intentionally DEFERRED to after all phases** — see `DEPLOYMENT.md`; `service_role` key still needs rotating before deploy. Standing test login in `.env.local` (`VIGIL_TEST_EMAIL`/`VIGIL_TEST_PASSWORD`).
 

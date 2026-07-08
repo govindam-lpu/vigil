@@ -14,6 +14,7 @@ import type {
   MedicationAdministrationLog,
   Membership,
   Note,
+  Notification,
   Observation,
   Person,
   Reminder,
@@ -236,6 +237,15 @@ export type Database = {
         Update: UpdateOf<Invitation>;
         Relationships: [];
       };
+      notifications: {
+        Row: Notification;
+        Insert: InsertOf<Notification, "id" | "created_at"> & {
+          id?: string;
+          created_at?: string;
+        };
+        Update: UpdateOf<Notification>;
+        Relationships: [];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -292,6 +302,24 @@ export type Database = {
           target_task_id: string;
         };
         Returns: Task;
+      };
+      activate_crisis_mode: {
+        Args: {
+          target_care_circle_id: string;
+          activation_reason: string;
+        };
+        Returns: CrisisModeSession;
+      };
+      deactivate_crisis_mode: {
+        Args: {
+          target_care_circle_id: string;
+          deactivation_summary: string;
+        };
+        Returns: CrisisModeSession | null;
+      };
+      process_due_reminders: {
+        Args: Record<string, never>;
+        Returns: undefined;
       };
     };
     Enums: {

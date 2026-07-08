@@ -11,7 +11,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { LoadError } from "@/components/ui/load-error";
 import { SuggestionBanner } from "@/components/documents/suggestion-banner";
+import { CrisisDocumentsView } from "@/components/crisis/crisis-documents-view";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { useCrisisMode } from "@/components/shell/crisis-mode-provider";
 import { createClient } from "@/lib/supabase/client";
 import type { DocumentType, Folder, HydratedDocument } from "@/lib/types";
 import { cn, formatShortDate } from "@/lib/utils";
@@ -21,6 +23,13 @@ type DocumentMode = "list" | "grid";
 type SmartView = "expiring" | "added" | "pinned";
 
 export function DocumentsView() {
+  const { crisisMode } = useCrisisMode();
+
+  // Crisis mode scopes Documents to the Emergency Packet (pinned) only.
+  if (crisisMode) {
+    return <CrisisDocumentsView />;
+  }
+
   return (
     <Suspense fallback={<div className="p-6">Loading documents…</div>}>
       <DocumentsContent />

@@ -33,7 +33,9 @@ export type TimelineEventType =
   | "medication_changed"
   | "observation_logged"
   | "member_joined"
-  | "system";
+  | "system"
+  | "crisis_activated"
+  | "crisis_deactivated";
 export type ReminderType =
   | "task_due"
   | "appointment_upcoming"
@@ -78,6 +80,9 @@ export type EscalationAction = "notify_role" | "notify_user" | "notify_emergency
 export type AiProvider = "anthropic" | "gemini" | "managed";
 export type AiFeature = "extraction" | "summary" | "note_task_suggestion";
 export type DocumentProcessingStatus = "pending" | "processing" | "indexed" | "failed";
+
+// Phase 4 — Crisis & Continuity Mode
+export type NotificationType = "crisis_activated" | "reminder" | "escalation";
 
 export type UserProfile = {
   id: string;
@@ -429,6 +434,20 @@ export type CrisisModeSession = {
   reason: string | null;
   summary: string | null;
   members_notified: string[] | null;
+  created_at: string;
+};
+
+export type Notification = {
+  id: string;
+  care_circle_id: string;
+  recipient_id: string;
+  reminder_id: string | null;
+  title: string;
+  body: string | null;
+  notification_type: NotificationType;
+  action_url: string | null;
+  is_read: boolean;
+  read_at: string | null;
   created_at: string;
 };
 

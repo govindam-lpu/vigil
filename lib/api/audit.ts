@@ -11,7 +11,18 @@ export async function createAuditLog({
 }: {
   careCircleId: string;
   actorId: string;
-  actionType: "created" | "updated" | "deleted" | "archived" | "permission_changed" | "role_changed";
+  actionType:
+    | "created"
+    | "updated"
+    | "deleted"
+    | "archived"
+    | "permission_changed"
+    | "role_changed"
+    | "shared"
+    | "export"
+    | "crisis_activated"
+    | "crisis_deactivated"
+    | "login";
   objectType: string;
   objectId: string;
   diff: Json | null;

@@ -1,8 +1,10 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ActivateCrisisModal } from "@/components/crisis/activate-crisis-modal";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -11,9 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
+import { roleMeetsMinimum } from "@/lib/permissions/roles";
 import { createClient } from "@/lib/supabase/client";
 import type { UserProfile } from "@/lib/types";
 import { useActiveCircle } from "./active-circle-provider";
+import { useCrisisMode } from "./crisis-mode-provider";
 import { PersonSwitcher } from "./person-switcher";
 
 type TopBarProps = {
@@ -24,7 +28,12 @@ type TopBarProps = {
 export function TopBar({ profile, email }: TopBarProps) {
   const router = useRouter();
   const { activeCircle } = useActiveCircle();
+  const { crisisMode } = useCrisisMode();
   const [query, setQuery] = useState("");
+  const [activateOpen, setActivateOpen] = useState(false);
+
+  const role = activeCircle?.membership.role;
+  const canActivateCrisis = Boolean(role && roleMeetsMinimum(role, "coordinator"));
 
   useEffect(() => {
     if (!activeCircle?.person || query.trim().length < 2) {
@@ -49,12 +58,19 @@ export function TopBar({ profile, email }: TopBarProps) {
   const signOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    try {
+      // Clear the offline caches so this device retains no PHI after sign-out.
+      navigator.serviceWorker?.controller?.postMessage("vigil-clear");
+    } catch {
+      // no-op
+    }
     router.push("/login");
     router.refresh();
   };
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center border-b border-neutral-200 bg-white px-4">
+    <>
+      <header className="fixed left-0 right-0 top-0 z-30 flex h-14 items-center border-b border-neutral-200 bg-white px-4">
       <div className="flex w-60 shrink-0 items-center">
         <span className="text-lg font-semibold text-blue-600">Vigil</span>
       </div>
@@ -72,13 +88,18 @@ export function TopBar({ profile, email }: TopBarProps) {
             className="w-56 bg-transparent text-sm text-neutral-900 outline-none placeholder:text-neutral-400 focus:w-80"
           />
         </label>
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-        >
-          <Bell className="h-5 w-5" aria-hidden="true" />
-        </button>
+        {!crisisMode && canActivateCrisis ? (
+          <button
+            type="button"
+            onClick={() => setActivateOpen(true)}
+            aria-label="Activate crisis mode"
+            className="inline-flex h-10 items-center gap-2 rounded-lg border border-neutral-300 px-3 text-sm font-medium text-neutral-700 hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            <AlertTriangle className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">Crisis Mode</span>
+          </button>
+        ) : null}
+        <NotificationBell careCircleId={activeCircle?.careCircle.id ?? null} />
         <DropdownMenu>
           <DropdownMenuTrigger className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
             <Avatar name={profile.display_name} src={profile.avatar_url} />
@@ -93,6 +114,10 @@ export function TopBar({ profile, email }: TopBarProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-    </header>
+      </header>
+      {activateOpen && activeCircle ? (
+        <ActivateCrisisModal careCircleId={activeCircle.careCircle.id} onClose={() => setActivateOpen(false)} />
+      ) : null}
+    </>
   );
 }

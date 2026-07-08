@@ -71,7 +71,12 @@ Buildpack: build `npm ci`, start `npm run worker`. Docker: `docker build -f work
 
 ## Per-phase deploy additions
 - **Phase 3 (done):** the two backend services above; `AI_KEY_ENC_SECRET`; the BYOK/worker/transcription env.
-- **Phase 4 (TBD):** likely server-side Emergency-Packet PDF export + offline (service worker). Append when built.
+- **Phase 4 (done — Crisis & Continuity):** **no new deployable service** (Emergency-Packet PDF runs in the web app via `pdfkit`; the offline service worker is the static `public/sw.js`). Deploy needs:
+  - **Apply migrations `202607080001_phase_4_crisis_continuity.sql` + `202607080002_harden_reminder_job.sql`** (first adds `notifications`, the `emergency-packets` storage bucket, and the crisis + reminder-delivery functions; second revokes user `execute` on the reminder job so only pg_cron runs it).
+  - **Enable `pg_cron`** in Supabase (Dashboard → Database → Extensions) so the reminder-delivery job runs. The migration self-schedules `vigil-process-reminders` every 5 min; if pg_cron wasn't enabled first, the migration still applies (fail-soft) and you schedule it manually afterward: `select cron.schedule('vigil-process-reminders','*/5 * * * *','select public.process_due_reminders();');`. pg_cron runs inside the live DB, so reminders/notifications work even before the app is hosted.
+  - **No new env vars.** The web app does NOT need the service-role key for any Phase 4 feature (packet signing + notifications run under the user session / SECURITY DEFINER functions).
+  - **Vercel note:** `/api/emergency-packet` is a Node function (`runtime = "nodejs"`, uses `pdfkit`) — fine on Vercel/any Node host; do not force it to the Edge runtime.
+  - **Reminder-unack window** is configurable per circle via `care_circles.settings.reminder_unack_hours` (default 4).
 - **Phase 5 (TBD):** **new infra** — background job runner (escalation firing, reminder delivery),
   notification providers (email/SMS/push — e.g. Resend/Twilio/FCM), OAuth integrations (calendar/email).
   This is the phase most likely to want a **staging deploy** to validate. Append when built.

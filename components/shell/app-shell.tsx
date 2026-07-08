@@ -1,5 +1,9 @@
 import type { CircleSummary, UserProfile } from "@/lib/types";
 import { ActiveCircleProvider } from "./active-circle-provider";
+import { ShellBanners } from "./crisis-banner";
+import { CrisisModeProvider } from "./crisis-mode-provider";
+import { ServiceWorkerRegister } from "./service-worker-register";
+import { ShellMain } from "./shell-main";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 
@@ -13,9 +17,13 @@ type AppShellProps = {
 export function AppShell({ circles, profile, email, children }: AppShellProps) {
   return (
     <ActiveCircleProvider circles={circles}>
-      <TopBar profile={profile} email={email} />
-      <Sidebar />
-      <main className="min-h-screen bg-neutral-50 pt-14 lg:pl-60">{children}</main>
+      <CrisisModeProvider>
+        <ServiceWorkerRegister />
+        <TopBar profile={profile} email={email} />
+        <ShellBanners />
+        <Sidebar />
+        <ShellMain>{children}</ShellMain>
+      </CrisisModeProvider>
     </ActiveCircleProvider>
   );
 }
