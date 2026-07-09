@@ -204,6 +204,12 @@ export async function PATCH(request: NextRequest) {
   const context = await getCapabilityContext(parsed.data.careCircleId, "documents.upload");
   if (context instanceof NextResponse) return context;
 
+  // Archiving is a destructive action gated by the distinct documents.delete capability
+  // (owner/coordinator by default; contributors have documents.upload but not delete).
+  if (parsed.data.archive && !context.capabilities.has("documents.delete")) {
+    return NextResponse.json({ error: "You do not have permission to delete documents." }, { status: 403 });
+  }
+
   try {
     const supabase = createClient();
     const updatePayload: Partial<Document> = {};

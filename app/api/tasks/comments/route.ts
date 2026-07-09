@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { createAuditLog } from "@/lib/api/audit";
 import { getProfilesById } from "@/lib/api/records";
 import { getErrorMessage, getRequestContext } from "@/lib/api/server";
 import { createClient } from "@/lib/supabase/server";
@@ -53,6 +54,16 @@ export async function POST(request: NextRequest) {
     }
 
     const comment = data as TaskComment;
+
+    await createAuditLog({
+      careCircleId: parsed.data.careCircleId,
+      actorId: context.userId,
+      actionType: "created",
+      objectType: "task_comment",
+      objectId: comment.id,
+      diff: { task_id: parsed.data.taskId }
+    });
+
     const profiles = await getProfilesById([comment.author_id]);
     return NextResponse.json({ comment: { ...comment, author: profiles.get(comment.author_id) ?? null } });
   } catch (error) {

@@ -20,11 +20,16 @@ export async function checkMembership(
 ): Promise<Membership> {
   const supabase = createClient();
 
+  // Match the DB helpers (is_care_circle_member / has_care_circle_role, hardened in
+  // 202607080006): a soft-removed or time-expired membership grants no access, so the
+  // route gate must exclude them too — not rely on downstream RLS to fail closed.
   const { data, error } = await supabase
     .from("memberships")
     .select("*")
     .eq("care_circle_id", careCircleId)
     .eq("user_id", userId)
+    .is("deleted_at", null)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
 
   if (error || !data || !roleMeetsMinimum(data.role, minimumRole)) {

@@ -25,7 +25,6 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLogin = pathname.startsWith("/login");
-  const isOnboarding = pathname.startsWith("/onboarding");
   const isApi = pathname.startsWith("/api");
 
   if (!user) {
@@ -48,20 +47,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  if (!isOnboarding && !isApi) {
-    const { count } = await supabase
-      .from("memberships")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id);
-
-    if (!count) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/onboarding";
-      redirectUrl.search = "";
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
+  // The zero-circle → /onboarding redirect lives in the (app) layout (which already loads
+  // the user's circles on entry). Doing it here too cost a memberships COUNT round-trip on
+  // every navigation and every API call — removed to speed up tab switching.
   return response;
 }
 

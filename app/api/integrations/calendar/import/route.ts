@@ -7,15 +7,15 @@ import { createClient } from "@/lib/supabase/server";
 import type { Appointment } from "@/lib/types";
 
 const eventSchema = z.object({
-  summary: z.string().min(1),
-  start: z.string().min(1),
-  location: z.string().nullable().optional()
+  summary: z.string().min(1).max(500),
+  start: z.string().min(1).refine((value) => !Number.isNaN(Date.parse(value)), "Invalid start date"),
+  location: z.string().max(1000).nullable().optional()
 });
 
 const bodySchema = z.object({
   careCircleId: z.string().uuid(),
   personId: z.string().uuid(),
-  events: z.array(eventSchema).min(1)
+  events: z.array(eventSchema).min(1).max(200)
 });
 
 // POST /api/integrations/calendar/import — create appointments from selected calendar
