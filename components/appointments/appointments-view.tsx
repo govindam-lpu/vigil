@@ -102,15 +102,15 @@ function AppointmentsContent() {
     <div className="mx-auto max-w-[1280px] p-6">
       <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Calendar</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Calendar</h1>
           <p className="text-sm text-neutral-500">Track appointments, outcomes, and reminders.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="rounded-lg border border-neutral-200 bg-white p-1">
-            <button className={cn("h-8 rounded-md px-3 text-sm font-medium", mode === "list" && "bg-blue-50 text-blue-600")} onClick={() => setMode("list")}>
+            <button className={cn("h-8 rounded-md px-3 text-sm font-medium", mode === "list" && "bg-brand-50 text-brand-600")} onClick={() => setMode("list")}>
               List
             </button>
-            <button className={cn("h-8 rounded-md px-3 text-sm font-medium", mode === "calendar" && "bg-blue-50 text-blue-600")} onClick={() => setMode("calendar")}>
+            <button className={cn("h-8 rounded-md px-3 text-sm font-medium", mode === "calendar" && "bg-brand-50 text-brand-600")} onClick={() => setMode("calendar")}>
               Calendar
             </button>
           </div>
@@ -133,16 +133,16 @@ function AppointmentsContent() {
             {appointments.length === 0 ? (
               <Card className="flex items-start gap-3">
                 <CalendarDays className="mt-1 h-5 w-5 text-neutral-400" aria-hidden="true" />
-                <p className="text-base text-neutral-600">No appointments scheduled. Add appointments to track upcoming visits.</p>
+                <p className="text-base text-neutral-600"><span className="font-display tracking-tight">No appointments scheduled.</span> Add appointments to track upcoming visits.</p>
               </Card>
             ) : (
               grouped.map(([month, items]) => (
-                <div key={month} className="rounded-lg border border-neutral-200 bg-white">
+                <div key={month} className="rounded-xl border border-neutral-200 bg-white">
                   <h2 className="border-b border-neutral-200 px-4 py-3 text-md font-semibold text-neutral-900">{month}</h2>
                   {items.map((appointment) => (
                     <button
                       key={appointment.id}
-                      className={cn("grid w-full grid-cols-[64px_1fr_110px_90px_120px] items-center gap-3 border-b border-neutral-100 px-4 py-3 text-left hover:bg-neutral-50", selected?.id === appointment.id && "bg-blue-50")}
+                      className={cn("grid w-full grid-cols-[64px_1fr_110px_90px_120px] items-center gap-3 border-b border-neutral-100 px-4 py-3 text-left hover:bg-neutral-50", selected?.id === appointment.id && "bg-brand-50")}
                       onClick={() => setSelectedId(appointment.id)}
                     >
                       <DateBadge value={appointment.scheduled_at} />
@@ -156,7 +156,7 @@ function AppointmentsContent() {
                         {appointment.attendees.slice(0, 4).map((attendee) => (
                           <Avatar key={attendee.id} name={attendee.display_name} src={attendee.avatar_url} className="h-7 w-7 border-white" />
                         ))}
-                        <span className="pl-3 text-sm text-neutral-500">{appointment.duration_minutes ? `${appointment.duration_minutes} min` : ""}</span>
+                        <span className="pl-3 font-mono text-sm text-neutral-500">{appointment.duration_minutes ? `${appointment.duration_minutes} min` : ""}</span>
                       </div>
                     </button>
                   ))}
@@ -246,7 +246,7 @@ function AppointmentDetail({ appointment, members, folders, onReload }: { appoin
   };
 
   return (
-    <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-4">
+    <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-4">
       <EditableInput label="Title" value={appointment.title} onSave={(value) => update({ title: value })} />
       <EditableInput label="Provider" value={appointment.provider_name ?? ""} onSave={(value) => update({ provider_name: value || null })} />
       <EditableInput label="Location" value={appointment.location ?? ""} onSave={(value) => update({ location: value || null })} />
@@ -366,7 +366,7 @@ function AppointmentAttachments({ appointment, folders }: { appointment: Hydrate
         <ul className="mb-2 space-y-1">
           {documents.map((document) => (
             <li key={document.id}>
-              <button type="button" className="text-left text-sm font-medium text-blue-600 hover:underline" onClick={() => void openDocument(document.id)}>
+              <button type="button" className="text-left text-sm font-medium text-brand-600 hover:underline" onClick={() => void openDocument(document.id)}>
                 {document.title}
               </button>
             </li>
@@ -419,7 +419,7 @@ function AppointmentModal({ careCircleId, personId, members, contacts, onClose, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Add Appointment</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
@@ -472,16 +472,20 @@ function AppointmentModal({ careCircleId, personId, members, contacts, onClose, 
 
 function CalendarGrid({ appointments, onSelect }: { appointments: HydratedAppointment[]; onSelect: (id: string) => void }) {
   const days = Array.from({ length: 35 }, (_, index) => index + 1);
+  const today = new Date().getDate();
   return (
-    <section className="rounded-lg border border-neutral-200 bg-white p-4">
+    <section className="rounded-xl border border-neutral-200 bg-white p-4">
       <div className="grid grid-cols-7 gap-2">
         {days.map((day) => {
           const items = appointments.filter((appointment) => new Date(appointment.scheduled_at).getDate() === day);
           return (
             <div key={day} className="min-h-24 rounded border border-neutral-200 p-2">
-              <p className="text-xs font-semibold text-neutral-500">{day}</p>
+              <p className="flex items-center gap-1 font-mono text-xs font-semibold text-neutral-500">
+                {day}
+                {day === today ? <span className="ember-dot" aria-hidden="true" /> : null}
+              </p>
               {items.slice(0, 3).map((appointment) => (
-                <button key={appointment.id} className="mt-1 block max-w-full truncate rounded bg-blue-50 px-2 py-1 text-xs text-blue-700" onClick={() => onSelect(appointment.id)}>
+                <button key={appointment.id} className="mt-1 block max-w-full truncate rounded bg-brand-50 px-2 py-1 text-xs text-brand-700" onClick={() => onSelect(appointment.id)}>
                   {appointment.title}
                 </button>
               ))}
@@ -497,8 +501,8 @@ function DateBadge({ value }: { value: string }) {
   const date = new Date(value);
   return (
     <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-center">
-      <p className="text-xs font-semibold uppercase text-neutral-500">{date.toLocaleDateString("en", { month: "short" })}</p>
-      <p className="text-lg font-semibold text-neutral-900">{date.getDate()}</p>
+      <p className="font-mono text-xs font-semibold uppercase text-neutral-500">{date.toLocaleDateString("en", { month: "short" })}</p>
+      <p className="font-mono text-lg font-semibold text-neutral-900">{date.getDate()}</p>
     </div>
   );
 }

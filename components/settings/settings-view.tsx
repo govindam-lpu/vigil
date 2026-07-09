@@ -84,7 +84,7 @@ export function SettingsView() {
     <div className="mx-auto max-w-[1280px] p-6">
       <SettingsNav />
       <div className="mt-4">
-        <h1 className="text-lg font-semibold text-neutral-900">Settings</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Settings</h1>
         <p className="text-sm text-neutral-500">Care circle configuration.</p>
       </div>
 
@@ -122,7 +122,7 @@ export function SettingsView() {
                 <SkeletonRows rows={2} />
               ) : rules.length === 0 ? (
                 <Card>
-                  <p className="text-sm text-neutral-600">No escalation rules yet. Add one to define how missed items are surfaced.</p>
+                  <p className="text-sm text-neutral-600"><span className="font-display tracking-tight">No escalation rules yet.</span> Add one to define how missed items are surfaced.</p>
                 </Card>
               ) : (
                 rules.map((rule) => (
@@ -374,7 +374,7 @@ function MembershipExpirySection({
             <input
               type="radio"
               name="expiry-policy"
-              className="mt-1 accent-blue-600"
+              className="mt-1 accent-brand-600"
               checked={policy === "downgrade"}
               disabled={saving}
               onChange={() => void save("downgrade")}
@@ -389,7 +389,7 @@ function MembershipExpirySection({
             <input
               type="radio"
               name="expiry-policy"
-              className="mt-1 accent-blue-600"
+              className="mt-1 accent-brand-600"
               checked={policy === "remove"}
               disabled={saving}
               onChange={() => void save("remove")}

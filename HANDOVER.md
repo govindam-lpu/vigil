@@ -395,11 +395,35 @@ expiry downgrade/remove + handoff-elevation revert); multi-household (Locations 
 via a DB-enforced companion table). New deps: `jszip`, `recharts`. **Excluded (per spec):** SMS, Gmail import,
 Drive/Dropbox sync, calendar write-back. Deviations + tech debt in `PHASE_5_PLAN.md`.
 
+## Redesign — "Night Watch" (branch `redesign`, off `main`, 2026-07-09)
+
+Front-end-only visual redesign. **No security/RLS/API/data-model changes** — pure presentation. Standing
+rules held (server-side authz, soft-delete, audit, RLS all untouched). Source of truth is the rewritten
+**DESIGN.md "Visual Identity — The Night Watch"** + "Typography"/"Color Strategy" sections.
+
+- **Identity:** navigation lives on a deep-evergreen **night rail** (`night` #12211C, desktop sidebar +
+  mobile bottom nav); content sits on a green-cast **porcelain** field (`neutral-50` #F4F6F1). The
+  **ember** (`#E8A33D`) is the single signature accent — the "keeping watch" lamp — used only on the
+  wordmark, the active-nav bar, today markers, and Quick Check-in. **Never** for status.
+- **Type (three voices):** `font-sans` **Spline Sans** (all UI), `font-mono` **Spline Sans Mono** (record
+  data: timestamps, doses, phone numbers, Rx, counts), `font-display` **Literata** serif (wordmark, page
+  titles, the Person's name, empty-state headlines). Loaded via `next/font` in `app/layout.tsx`.
+- **Color:** old `blue-600` → **`brand-600` evergreen #2E5A4A** everywhere (codemod). Neutrals are a
+  green-cast stone scale. Status red/green/yellow/orange semantics **unchanged**; crisis red untouched.
+- **Tokens:** `tailwind.config.ts` (colors, fonts, radii, shadows); `app/globals.css` (`.ember-dot` /
+  `.ember-pulse`, scrollbars, focus ring, `prefers-reduced-motion`). New shell: `components/shell/wordmark.tsx`,
+  `mobile-nav.tsx`. Login/onboarding rebuilt as a night/daylight "threshold" split. Timeline has a real
+  spine. `analytics-charts.tsx` Recharts palette moved to evergreen+stone.
+- **Verified:** typecheck / lint / build / typecheck:worker all green; live browser check on desktop (1440)
+  and mobile (375) — login threshold, dashboard, timeline spine, mobile bottom nav + More sheet. No test
+  data created. See `REDESIGN_REPORT.md` for the full file-by-file record.
+- **Not done here:** not merged to `main`, no PR opened. Deploy tasks still pending (below).
+
 ## What Is Left Next
 
-**All six phases (0–5) are COMPLETE and merged to `main`.** No more feature phases. The next session is a
-**security-audit + performance + bug-fix (hardening) pass, then redesign prep** — full brief in
-**`NEXT_SESSION_HANDOFF.md`** (paste it as the opening prompt). Highlights:
+**All six phases (0–5) are COMPLETE and merged to `main`; the `redesign` branch (above) is built + green but
+not yet merged.** No more feature phases. The prior hardening brief is in
+**`NEXT_SESSION_HANDOFF.md`**. Highlights:
 - **Security audit** of the whole app (authorization/RLS cross-circle + capability-override enforcement,
   private-notes + household access-notes isolation, auth/401, XSS + `.ics` parser, secrets/crypto incl. the
   Google OAuth `state` CSRF gap, `npm audit`). Test via API **and** direct PostgREST under a user JWT.

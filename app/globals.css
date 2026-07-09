@@ -3,9 +3,9 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 20% 98%;
-  --foreground: 221 39% 11%;
-  --border: 220 13% 91%;
+  --background: 84 22% 95%;
+  --foreground: 147 17% 13%;
+  --border: 88 17% 85%;
 }
 
 * {
@@ -18,8 +18,8 @@ body {
 }
 
 body {
-  background: #f9fafb;
-  color: #111827;
+  background: #f4f6f1;
+  color: #1b2620;
 }
 
 a {
@@ -32,4 +32,76 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+::selection {
+  background: #dbe8dd;
+}
+
+:focus-visible {
+  outline: 2px solid #2e5a4a;
+  outline-offset: 2px;
+}
+
+/* Quieter scrollbars so dense lists read as one surface. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #bfc8b8 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bfc8b8;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* The ember — the vigil lamp (DESIGN.md — Visual Identity). "Alive now" only:
+   wordmark, active-nav lamp, today markers, quick check-in. Never status. */
+.ember-dot {
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #e8a33d;
+  box-shadow: 0 0 6px 1px rgba(232, 163, 61, 0.55);
+}
+
+.ember-pulse {
+  animation: ember-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes ember-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 6px 1px rgba(232, 163, 61, 0.55);
+  }
+  50% {
+    opacity: 0.65;
+    box-shadow: 0 0 2px 0 rgba(232, 163, 61, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ember-pulse {
+    animation: none;
+  }
+
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

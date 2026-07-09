@@ -23,13 +23,25 @@ import {
 import { Card } from "@/components/ui/card";
 import type { CareCircleAnalytics } from "@/lib/types";
 
-const BLUE = "#2563EB";
+// Night Watch chart palette (DESIGN.md). The brand evergreen leads; status hues
+// keep their meaning; grid/axis use the green-stone neutral scale.
+const BRAND = "#2E5A4A";
 const GREEN = "#16A34A";
 const RED = "#DC2626";
 const YELLOW = "#D97706";
 const ORANGE = "#F97316";
-// Categorical series palette (charts legitimately need distinct hues per member/type).
-const SERIES_COLORS = [BLUE, GREEN, YELLOW, ORANGE, RED, "#0891B2", "#7C3AED", "#BE185D"];
+const GRID = "#D9DFD2"; // neutral-200
+const AXIS = "#93A08F"; // neutral-400
+// Categorical series palette (charts legitimately need distinct hues per member/type),
+// anchored on the brand evergreen.
+const SERIES_COLORS = [BRAND, YELLOW, "#0891B2", ORANGE, "#7C3AED", GREEN, "#556456", "#BE185D"];
+// Tooltip surface matches floating panels: white, hairline stone border, soft lift.
+const TOOLTIP_STYLE = {
+  borderRadius: 12,
+  border: "1px solid #D9DFD2",
+  boxShadow: "0 8px 28px rgba(27, 38, 32, 0.14)",
+  fontSize: 12
+} as const;
 
 function shortDate(value: string): string {
   return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(new Date(`${value}T00:00:00`));
@@ -97,12 +109,12 @@ function TasksSection({
         <ChartCard title="Created vs completed by week">
           <ResponsiveContainer>
             <BarChart data={createdCompleted}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-              <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+              <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke={AXIS} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke={AXIS} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="created" name="Created" fill={BLUE} radius={[2, 2, 0, 0]} />
+              <Bar dataKey="created" name="Created" fill={BRAND} radius={[2, 2, 0, 0]} />
               <Bar dataKey="completed" name="Completed" fill={GREEN} radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -111,10 +123,10 @@ function TasksSection({
         <ChartCard title="Overdue (missed) tasks by week">
           <ResponsiveContainer>
             <LineChart data={overdue}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-              <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+              <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke={AXIS} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke={AXIS} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Line type="monotone" dataKey="missed" name="Missed" stroke={RED} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
@@ -147,10 +159,10 @@ function TasksSection({
                   return (
                     <tr key={row.user_id} className="border-b border-neutral-100">
                       <td className="py-2 pr-4 font-medium text-neutral-900">{nameFor(row.user_id)}</td>
-                      <td className="py-2 pr-4 text-neutral-600">{row.assigned}</td>
-                      <td className="py-2 pr-4 text-neutral-600">{row.completed}</td>
-                      <td className="py-2 pr-4 text-neutral-600">{row.missed}</td>
-                      <td className="py-2 pr-4 text-neutral-900">{rate}%</td>
+                      <td className="py-2 pr-4 font-mono text-neutral-600">{row.assigned}</td>
+                      <td className="py-2 pr-4 font-mono text-neutral-600">{row.completed}</td>
+                      <td className="py-2 pr-4 font-mono text-neutral-600">{row.missed}</td>
+                      <td className="py-2 pr-4 font-mono text-neutral-900">{rate}%</td>
                     </tr>
                   );
                 })
@@ -170,7 +182,7 @@ function TasksSection({
                 className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700"
               >
                 {keyword.word}
-                <span className="text-neutral-400">{keyword.count}</span>
+                <span className="font-mono text-neutral-400">{keyword.count}</span>
               </span>
             ))}
           </div>
@@ -199,11 +211,11 @@ function DocumentationSection({
         <ChartCard title="Documents uploaded per month">
           <ResponsiveContainer>
             <BarChart data={uploads}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <Tooltip />
-              <Bar dataKey="count" name="Uploaded" fill={BLUE} radius={[2, 2, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke={AXIS} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke={AXIS} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Bar dataKey="count" name="Uploaded" fill={BRAND} radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -219,7 +231,7 @@ function DocumentationSection({
                     <Cell key={entry.name} fill={SERIES_COLORS[index % SERIES_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -233,9 +245,9 @@ function DocumentationSection({
           <p className="text-sm text-neutral-500">Documents with an expiry date approaching.</p>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-2xl font-bold text-neutral-900">{analytics.documents.expiring_90d}</span>
+          <span className="font-mono text-2xl font-bold text-neutral-900">{analytics.documents.expiring_90d}</span>
           {careCircleId && personId ? (
-            <Link href={`/documents?smartView=expiring`} className="text-sm font-medium text-blue-600 hover:underline">
+            <Link href={`/documents?smartView=expiring`} className="text-sm font-medium text-brand-600 hover:underline">
               View documents
             </Link>
           ) : null}
@@ -276,10 +288,10 @@ function ActivitySection({
           ) : (
             <ResponsiveContainer>
               <BarChart data={stacked}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-                <Tooltip />
+                <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} stroke={AXIS} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke={AXIS} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 {memberIds.map((userId, index) => (
                   <Bar
@@ -298,10 +310,10 @@ function ActivitySection({
         <ChartCard title="Check-ins per week">
           <ResponsiveContainer>
             <BarChart data={checkins}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" vertical={false} />
-              <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
+              <XAxis dataKey="week" tick={{ fontSize: 11 }} stroke={AXIS} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke={AXIS} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Bar dataKey="count" name="Check-ins" fill={GREEN} radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

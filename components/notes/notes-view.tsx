@@ -82,7 +82,7 @@ export function NotesView() {
     <div className="mx-auto max-w-[960px] p-6">
       <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Notes</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Notes</h1>
           <p className="text-sm text-neutral-500">Capture shared context and private reminders.</p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
@@ -101,7 +101,7 @@ export function NotesView() {
         {notes.length === 0 ? (
           <Card className="flex items-start gap-3">
             <StickyNote className="mt-1 h-5 w-5 text-neutral-400" />
-            <p className="text-base text-neutral-600">No notes yet. Notes preserve context that does not fit into tasks or appointments.</p>
+            <p className="font-display text-base tracking-tight text-neutral-600">No notes yet. Notes preserve context that does not fit into tasks or appointments.</p>
           </Card>
         ) : (
           notes.map((note) => <NoteCard key={note.id} note={note} currentUserId={currentUserId} currentRole={currentRole} onReload={load} />)
@@ -123,9 +123,9 @@ export function NotesView() {
 
       {taskSuggest && !panelOpen ? (
         <div className="fixed inset-x-0 bottom-6 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-lg">
-          <Sparkles className="h-4 w-4 shrink-0 text-blue-600" aria-hidden="true" />
+          <Sparkles className="h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
           <p className="flex-1 text-sm text-neutral-700">We noticed some possible tasks in your note.</p>
-          <button className="text-sm font-semibold text-blue-600 hover:underline" onClick={() => setPanelOpen(true)}>
+          <button className="text-sm font-semibold text-brand-600 hover:underline" onClick={() => setPanelOpen(true)}>
             Show suggestions
           </button>
           <button aria-label="Dismiss" className="text-neutral-400 hover:text-neutral-700" onClick={() => setTaskSuggest(null)}>
@@ -190,12 +190,12 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
   };
 
   return (
-    <article className="rounded-lg border border-neutral-200 bg-white p-4">
+    <article className="rounded-xl border border-neutral-200 bg-white p-4">
       <div className="flex items-center gap-2">
         <Avatar name={note.author?.display_name ?? "Unknown"} src={note.author?.avatar_url ?? null} className="h-8 w-8" />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-neutral-900">{note.author?.display_name ?? "Unknown member"}</p>
-          <p className="text-xs text-neutral-400">{formatDateTime(note.created_at)}</p>
+          <p className="font-mono text-xs text-neutral-400">{formatDateTime(note.created_at)}</p>
         </div>
         {note.is_private ? <Badge variant="neutral"><Lock className="mr-1 h-3 w-3" />Private</Badge> : null}
         {(canEdit || canPin) && !hiddenPrivate ? (
@@ -234,7 +234,7 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
         <>
           <p className={`mt-3 whitespace-pre-wrap text-base text-neutral-700 ${expanded ? "" : "line-clamp-3"}`}>{note.content}</p>
           {note.content.length > 180 ? (
-            <button className="mt-2 text-sm font-medium text-blue-600 hover:underline" onClick={() => setExpanded((value) => !value)}>
+            <button className="mt-2 text-sm font-medium text-brand-600 hover:underline" onClick={() => setExpanded((value) => !value)}>
               {expanded ? "Show less" : "Show more"}
             </button>
           ) : null}
@@ -391,7 +391,7 @@ function SuggestedTaskRow({
   return (
     <div className="flex items-center gap-2">
       <input
-        className="h-9 flex-1 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-900 focus:border-blue-600 focus:outline-none"
+        className="h-9 flex-1 rounded-lg border border-neutral-300 px-3 text-sm text-neutral-900 focus:border-brand-600 focus:outline-none"
         value={title}
         onChange={(event) => setTitle(event.target.value)}
       />

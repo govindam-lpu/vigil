@@ -91,7 +91,7 @@ export function HandoffModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Hand off responsibility</h2>
         <p className="mt-1 text-sm text-neutral-500">Step {step} of 2 — {step === 1 ? "Summary" : "Transfer"}</p>
 
@@ -117,7 +117,7 @@ export function HandoffModal({
               </ul>
               {appointments.length > 0 ? (
                 <p className="mt-2 text-xs text-neutral-500">
-                  Next: {appointments[0].title} · {formatDateTime(appointments[0].scheduled_at)}
+                  Next: {appointments[0].title} · <span className="font-mono">{formatDateTime(appointments[0].scheduled_at)}</span>
                 </p>
               ) : null}
             </div>
@@ -153,7 +153,7 @@ export function HandoffModal({
             {currentUserRole === "owner" && until ? (
               <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
                 <input type="checkbox" checked={elevate} onChange={(event) => setElevate(event.target.checked)} />
-                Temporarily elevate this member to Coordinator until {until}
+                Temporarily elevate this member to Coordinator until <span className="font-mono">{until}</span>
               </label>
             ) : null}
 

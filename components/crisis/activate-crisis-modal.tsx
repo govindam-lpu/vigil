@@ -40,7 +40,7 @@ export function ActivateCrisisModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-5">
+      <div className="w-full max-w-md rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Activate Crisis Mode</h2>
         <p className="mt-1 text-sm text-neutral-600">
           This will alert all care circle members and surface emergency information.

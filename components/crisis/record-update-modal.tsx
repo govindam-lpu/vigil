@@ -42,7 +42,7 @@ export function RecordUpdateModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-5">
+      <div className="w-full max-w-md rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Record update</h2>
         <p className="mt-1 text-sm text-neutral-500">Add a note to the timeline for the care circle.</p>
         <label className="mt-4 block">

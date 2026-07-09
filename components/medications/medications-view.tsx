@@ -132,7 +132,7 @@ function MedicationsContent() {
     <div className="mx-auto max-w-[1280px] p-6">
       <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Medications</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Medications</h1>
           <p className="text-sm text-neutral-500">
             {counts.active} active · {counts.refillsDue} refills due · {counts.discontinued} discontinued
           </p>
@@ -155,7 +155,7 @@ function MedicationsContent() {
             key={item}
             className={cn(
               "h-9 rounded-full border px-4 text-sm font-medium capitalize",
-              tab === item ? "border-blue-600 bg-blue-50 text-blue-600" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+              tab === item ? "border-brand-600 bg-brand-50 text-brand-600" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100"
             )}
             onClick={() => setTab(item)}
           >
@@ -170,7 +170,7 @@ function MedicationsContent() {
             <Card className="flex items-start gap-3">
               <Pill className="mt-1 h-5 w-5 text-neutral-400" aria-hidden="true" />
               <p className="text-base text-neutral-600">
-                No {tab} medications. Medications track dosage, schedule, and refills so nothing is doubled up or missed.
+                <span className="font-display tracking-tight">No {tab} medications.</span> Medications track dosage, schedule, and refills so nothing is doubled up or missed.
               </p>
             </Card>
           ) : (
@@ -205,16 +205,16 @@ function MedicationCard({ medication, selected, onSelect }: { medication: Hydrat
   return (
     <button
       className={cn(
-        "w-full rounded-lg border border-neutral-200 bg-white p-4 text-left hover:bg-neutral-50",
-        selected && "border-blue-200 bg-blue-50"
+        "w-full rounded-xl border border-neutral-200 bg-white p-4 text-left hover:bg-neutral-50",
+        selected && "border-brand-200 bg-brand-50"
       )}
       onClick={onSelect}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-base font-semibold text-neutral-900">{displayName(medication)}</p>
-          <p className="text-sm text-neutral-500">{[medication.form, medication.route].filter(Boolean).join(" · ") || "—"}</p>
-          <p className="mt-1 text-sm text-neutral-600">{scheduleLine(medication)}</p>
+          <p className="font-mono text-sm text-neutral-500">{[medication.form, medication.route].filter(Boolean).join(" · ") || "—"}</p>
+          <p className="mt-1 font-mono text-sm text-neutral-600">{scheduleLine(medication)}</p>
           {medication.prescriber ? <p className="mt-1 text-xs text-neutral-400">Prescriber: {medication.prescriber.name}</p> : null}
         </div>
         {chip ? <Badge variant={chip.variant}>{chip.label}</Badge> : null}
@@ -267,7 +267,7 @@ function MedicationDetail({
   const chip = refillChip(medication);
 
   return (
-    <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-4">
+    <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="text-md font-semibold text-neutral-900">{displayName(medication)}</h2>
@@ -442,14 +442,14 @@ function MedicationHistory({ medication }: { medication: HydratedMedication }) {
   }, [medication.id, medication.care_circle_id, medication.person_id]);
 
   if (events.length === 0 && administrations.length === 0) {
-    return <p className="mt-3 text-sm text-neutral-500">No history yet.</p>;
+    return <p className="mt-3 font-display text-sm tracking-tight text-neutral-500">No history yet.</p>;
   }
 
   return (
     <div className="mt-3 space-y-2">
       {administrations.map((log) => (
         <div key={log.id} className="rounded-lg bg-neutral-50 p-2 text-sm">
-          <p className="font-medium text-neutral-800">Dose given · {formatDateTime(log.administered_at)}</p>
+          <p className="font-mono font-medium text-neutral-800">Dose given · {formatDateTime(log.administered_at)}</p>
           <p className="text-xs text-neutral-500">
             {log.administeredByProfile?.display_name ?? "Unknown member"}
             {log.notes ? ` — ${log.notes}` : ""}
@@ -459,7 +459,7 @@ function MedicationHistory({ medication }: { medication: HydratedMedication }) {
       {events.map((event) => (
         <div key={event.id} className="rounded-lg bg-neutral-50 p-2 text-sm">
           <p className="font-medium text-neutral-800">{event.title}</p>
-          <p className="text-xs text-neutral-500">{formatDateTime(event.occurred_at)}</p>
+          <p className="font-mono text-xs text-neutral-500">{formatDateTime(event.occurred_at)}</p>
         </div>
       ))}
     </div>
@@ -675,7 +675,7 @@ function ScheduleEditor({ schedule, onChange }: { schedule: string[]; onChange: 
             </button>
           </div>
         ))}
-        <button type="button" className="text-sm font-medium text-blue-600 hover:underline" onClick={() => onChange([...schedule, "08:00"])}>
+        <button type="button" className="text-sm font-medium text-brand-600 hover:underline" onClick={() => onChange([...schedule, "08:00"])}>
           + Add time
         </button>
       </div>
@@ -748,7 +748,7 @@ function ContactPicker({
               </option>
             ))}
           </select>
-          <button type="button" className="whitespace-nowrap text-sm font-medium text-blue-600 hover:underline" onClick={() => setAdding(true)}>
+          <button type="button" className="whitespace-nowrap text-sm font-medium text-brand-600 hover:underline" onClick={() => setAdding(true)}>
             + New
           </button>
         </div>

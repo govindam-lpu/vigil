@@ -103,7 +103,7 @@ export function DeactivateCrisisModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">End Crisis Mode</h2>
 
         {step === "summary" ? (
@@ -150,7 +150,7 @@ export function DeactivateCrisisModal({ onClose }: { onClose: () => void }) {
                 <div key={task.id} className="rounded-lg border border-neutral-200 p-3">
                   <p className="text-sm font-semibold text-neutral-900">{task.title}</p>
                   <p className="mt-1 text-xs text-neutral-500">
-                    Due {task.due_date ?? "—"} · {task.assigneeName ?? "Unassigned"}
+                    Due <span className="font-mono">{task.due_date ?? "—"}</span> · {task.assigneeName ?? "Unassigned"}
                   </p>
                   <label className="mt-2 block">
                     <span className="mb-1 block text-xs font-medium text-neutral-500">Reassign</span>

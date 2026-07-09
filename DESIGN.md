@@ -16,30 +16,58 @@ The core visual and interaction goals:
 
 **Operationally optimized.** Users need to take action: add a document, complete a task, record an update. The path from intent to completion must be short. Quick-add patterns and keyboard shortcuts are first-class affordances, not extras.
 
+**A place, not a panel.** Vigil should feel like somewhere a family returns to — a kept room, not an admin console. The identity must be quiet enough to stay calm under stress, but present enough that the app is recognizably *Vigil* at a glance. Identity is carried by structure, type, and one signature mark — never by decoration that competes with information.
+
+---
+
+## Visual Identity — The Night Watch
+
+The identity is drawn from the product's name. A vigil is the act of keeping watch through the night over someone you love: steady, attentive, unhurried. The interface embodies this with three moves:
+
+**1. The night rail and the daylight field.** The navigation sidebar is a deep evergreen "night" surface (`night` #12211C) — the watcher's post, constant on every screen. The content area is a soft green-cast porcelain (`neutral-50` #F4F6F1) — the daylight where the record is read and kept. The contrast between the two is the app's strongest identity carrier and doubles as wayfinding: navigation is always the dark thing.
+
+**2. The ember.** A single signature mark: a small warm amber dot (`ember` #E8A33D) with a faint glow — the lamp that says someone is keeping watch. It appears only where something is *alive now*:
+- In the wordmark (`Vigil` + ember), pulsing gently (3s, disabled under `prefers-reduced-motion`)
+- As the active-page indicator in the night rail (a 3px ember bar — the lit lamp marks where you are)
+- Next to today's date (dashboard greeting, calendar today cell)
+- On the Quick Check-in affordance
+
+The ember is never used for status communication (that is what status colors are for) and never appears more than a few times on one screen. It is an accent mark, not a palette color.
+
+**3. Three type voices.** Typography encodes what kind of content something is (see Typography). The sans voice is the instrument, the mono voice is the record, the serif voice is the person. This replaces decorative variety with meaningful variety.
+
+Everything else stays disciplined: white cards, hairline borders, restrained shadows, status colors reserved for meaning. The identity lives in the frame; the record itself stays plain and legible.
+
 ---
 
 ## Visual Language
 
 ### Typography
 
-**Primary typeface:** Inter (variable) or equivalent — a neutral, highly legible sans-serif with strong figure-ground performance at both large and small sizes. Inter works exceptionally well in data-dense UI.
+Vigil uses three typefaces, each with a fixed semantic role. Type voice is information: a reader learns that serif = the person, mono = the record, sans = the controls.
+
+**The instrument — Spline Sans (variable), `font-sans`.** All UI chrome: navigation, buttons, labels, form fields, table headers, card titles, body copy. A compact grotesque designed for dense UI; warmer and narrower than Inter, so lists hold more without feeling tighter.
+
+**The record — Spline Sans Mono (variable), `font-mono`.** Kept-record data: timestamps, the timeline date rail, dosage and frequency strings, Rx numbers, phone numbers, date badges, audit values. Mono marks data as ledger-true and makes scanning columns of record data effortless. Same family as the sans, so the two voices harmonize at any size.
+
+**The person — Literata (variable), `font-display`.** The human layer: the wordmark, page titles, the Person's name, empty-state headlines, and the login/onboarding threshold. A book face — Vigil is the family's book of record, and the serif voice is reserved for the story, never for controls. Use sparingly: if a screen has more than three serif elements, something is wrong.
 
 **Scale (base 16px, 1.25 ratio):**
-- `xs`: 11px / line-height 1.4 — metadata, labels, timestamps
+- `xs`: 11px / line-height 1.4 — metadata, labels, timestamps (mono where record data)
 - `sm`: 13px / line-height 1.5 — secondary text, table rows, captions
 - `base`: 15px / line-height 1.6 — body text, notes, descriptions
 - `md`: 17px / line-height 1.4 — section headings, card titles
-- `lg`: 20px / line-height 1.3 — page headings
-- `xl`: 26px / line-height 1.2 — Person name, major headings
-- `2xl`: 34px / line-height 1.1 — reserved for crisis mode alert header
+- `lg`: 20px / line-height 1.3 — subsection headings
+- `xl`: 26px / line-height 1.2 — page titles (display serif), Person name (display serif)
+- `2xl`: 34px / line-height 1.1 — reserved for crisis mode alert header and the login wordmark
 
 **Weight usage:**
 - 400 (regular) — body text, descriptions, metadata
-- 500 (medium) — most UI labels, table column headers
-- 600 (semibold) — card titles, task titles, section headings, status labels
-- 700 (bold) — urgent indicators, crisis mode headings, primary Person name
+- 500 (medium) — most UI labels, table column headers, mono record data
+- 600 (semibold) — card titles, task titles, section headings, status labels, display headings
+- 700 (bold) — urgent indicators, crisis mode headings
 
-**Never use font sizes below 11px.** Never use weights below 400 in body content. Never rely on italics for primary communication.
+**Never use font sizes below 11px.** Never use weights below 400 in body content. Never rely on italics for primary communication. Page titles are `font-display` (serif) `xl` semibold with tight tracking.
 
 ---
 
@@ -77,7 +105,7 @@ Information hierarchy is communicated through: type weight → type size → col
 **Never use color as the primary hierarchy signal.** Color is reserved for status communication (urgency, state) and must never be the only differentiator — always paired with text or shape.
 
 Page structure hierarchy:
-1. Page heading — `lg` semibold
+1. Page heading — `xl` display serif semibold
 2. Section heading — `md` semibold, with a subtle divider line
 3. Card/row title — `base` semibold
 4. Body / description — `base` regular, `neutral-600` on white background
@@ -89,26 +117,35 @@ Page structure hierarchy:
 ### Surface Treatment
 
 **Backgrounds:**
-- App background: `neutral-50` (#F9FAFB) — off-white, not pure white
+- App background: `neutral-50` (#F4F6F1) — porcelain with a green cast, not pure white and not yellow cream
 - Card surface: `white` (#FFFFFF) with `1px neutral-200` border
-- Sidebar: `neutral-100` (#F3F4F6)
-- Crisis mode background: `neutral-900` (#111827)
+- Sidebar / mobile nav bar: `night` (#12211C) — deep evergreen, full height
+- Inset surfaces (wells, hover rows): `neutral-100` (#E9EDE4)
 
-**No gradients in the primary UI.** No shadow-heavy card design. Shadows are used sparingly: a single `0 1px 3px rgba(0,0,0,0.08)` on elevated cards (modals, floating panels). No stacked shadows.
+**No gradients in the primary UI.** No shadow-heavy card design. Shadows are used sparingly: `0 1px 3px rgba(27,38,32,0.08)` on elevated cards, `0 8px 28px rgba(27,38,32,0.14)` on floating panels/modals/drawers. No stacked shadows.
 
 **Borders:** 1px solid `neutral-200` for card edges and dividers. `neutral-300` for input fields. `neutral-400` for visible separators.
+
+**Radii:** `md` 8px (inputs, chips' rectangular cousins), `lg` 10px (buttons, list rows), `xl` 14px (cards, panes), `full` for pills and avatars. Softer than a spreadsheet, firmer than a consumer app.
+
+**On the night rail:** text is white at reduced opacity (60% resting, 90% hover, 100% active); interactive hover fields are `white/5`. Never place status chips or dense data on the night surface — it holds navigation and the wordmark only.
 
 ---
 
 ### Color Strategy
 
-The palette is restrained. There are five functional color categories:
+The palette is restrained. There are six functional color categories:
 
 **Neutral (interface structure):**
-`neutral-50` through `neutral-900`. Used for backgrounds, surfaces, text, and dividers.
+`neutral-50` through `neutral-900` — a green-cast stone scale, from porcelain (#F4F6F1) to ink (#1B2620). Used for backgrounds, surfaces, text, and dividers. The green cast keeps neutrals in the same family as the brand so the whole surface reads warm without any surface being colorful.
 
-**Primary (brand and focus):**
-A single mid-blue: `blue-600` (#2563EB) for primary actions, links, and active states. Not used decoratively.
+Reference values: 50 #F4F6F1 · 100 #E9EDE4 · 200 #D9DFD2 · 300 #BFC8B8 · 400 #93A08F · 500 #6C7A6B · 600 #556456 · 700 #3E4C41 · 800 #293630 · 900 #1B2620.
+
+**Brand (evergreen):**
+`brand-600` (#2E5A4A) for primary actions, links, focus rings, and active states — deep evergreen, the daylight version of the night rail. `brand-700` (#234939) hover. `brand-50` (#EDF4EE) / `brand-100` (#DBE8DD) / `brand-200` (#B7D1BD) for tinted fills and borders. Not used decoratively. `night` (#12211C) is the brand's darkest register, used only for the navigation surfaces.
+
+**Ember (signature accent):**
+`ember` (#E8A33D). The vigil lamp. Used only per the Identity rules (wordmark, active-nav lamp, today markers, check-in affordance). Never for status, never for large fills, never for text.
 
 **Status colors (meaning-carrying only):**
 - `green-600` (#16A34A) — completed, healthy, active medication, good check-in
@@ -116,11 +153,13 @@ A single mid-blue: `blue-600` (#2563EB) for primary actions, links, and active s
 - `red-600` (#DC2626) — overdue, missed, urgent, crisis indicators
 - `orange-500` (#F97316) — elevated concern, warning (between yellow and red)
 
+Status hues are deliberately brighter and more saturated than the brand evergreen so state always reads as state, never as chrome.
+
 **Muted variants of status colors** (`green-50`, `red-50`, etc.) are used for backgrounds on status chips so they do not scream.
 
-**Crisis mode accent:** `red-500` used sparingly as an accent on the dark crisis background. Not used outside crisis mode.
+**Crisis mode accent:** `red-500` used sparingly as an accent on the dark crisis background. Not used outside crisis mode. Crisis surfaces keep their red semantics exactly as before — the identity layer never touches safety color.
 
-**No decorative color use.** No teal headers, no purple section backgrounds, no gradient buttons. Every pixel of color carries semantic meaning.
+**No decorative color use.** No teal headers, no purple section backgrounds, no gradient buttons. Every pixel of color carries semantic meaning — including the ember, whose meaning is "alive now."
 
 ---
 
@@ -138,8 +177,8 @@ Icons are `neutral-500` by default. `neutral-900` on hover/active. Status-color 
 
 Every interactive element has explicit design for four states:
 - **Default** — as described above
-- **Hover** — `neutral-100` background on list rows and buttons; `blue-600` underline on text links
-- **Focus** — `2px blue-600` outline, `2px offset` — visible, not subtle
+- **Hover** — `neutral-100` background on list rows and buttons; `brand-600` underline on text links; cards may lift with `border neutral-300` + subtle shadow
+- **Focus** — `2px brand-600` outline, `2px offset` — visible, not subtle (white outline on the night rail)
 - **Disabled** — 40% opacity, no hover behavior, cursor: not-allowed
 
 For data records (tasks, appointments, etc.):
@@ -177,15 +216,16 @@ Errors are communicated at the field level (inline, below the field, `red-600` t
 The app shell persists across all screens. It has two components: the top bar and the left sidebar (desktop) or bottom navigation bar (mobile).
 
 **Top Bar (56px height):**
-- Left: Vigil wordmark (links to dashboard)
-- Center-left: Person Switcher — a compact dropdown showing the active Person's name with a down-arrow. On click, shows a list of care circles the user belongs to, with Person name and role badge. Keyboard accessible.
-- Center: Global Search bar — always visible on desktop. On mobile, a search icon that expands to a full-width input.
+- Sits on the porcelain background (no white slab) with a hairline bottom border; on desktop it begins to the right of the night rail.
+- Left (mobile only): compact Vigil wordmark (the rail carries it on desktop).
+- Center-left: Person Switcher — a pill showing a small initial-avatar and the active Person's name with a down-arrow. On click, shows a list of care circles the user belongs to, with Person name and role badge. Keyboard accessible.
+- Center: Global Search bar — always visible on desktop. On mobile, a search icon that navigates to the search screen.
 - Right: Notifications bell (with unread count badge, max "9+"), User avatar (dropdown: Profile, Preferences, Sign Out)
 - Far right: "Crisis Mode" button appears only when crisis mode is active — red background, white text "Crisis Active."
 
-**Left Sidebar (240px width, desktop only):**
+**Left Sidebar — the night rail (240px width, desktop only):**
 
-The sidebar contains the primary navigation and is not collapsible on desktop in Phase 0–2. A collapse affordance can be added in Phase 5.
+Full-height `night` (#12211C) surface. Top: the Vigil wordmark with the pulsing ember. Below: primary navigation. The sidebar contains the primary navigation and is not collapsible.
 
 Navigation items:
 - Dashboard (home icon)
@@ -198,12 +238,12 @@ Navigation items:
 - ——
 - Settings (gear icon, at bottom)
 
-Active item: `blue-600` text, `blue-50` background, 3px `blue-600` left border.
+Nav items: `sm` medium, white at 60% opacity; hover raises to 90% on a `white/5` field. Active item: white text on `white/7` field with a 3px `ember` left bar — the lit lamp marks where you are.
 
 The sidebar does not contain sub-items in its default state. Selecting an item loads the full page with its own internal navigation where needed (e.g., Documents shows folder nav in its left panel).
 
 **Mobile Navigation:**
-Bottom tab bar with 5 items: Dashboard, Timeline, Tasks, Documents, More (reveals remaining nav items in a bottom sheet). Top bar retains Person Switcher, Search, and Notifications.
+Bottom tab bar (64px + safe-area inset) on the `night` surface with 5 items: Dashboard, Timeline, Tasks, Documents, More (reveals remaining nav items in a bottom sheet). Active item: white with an ember dot above the icon; inactive items white at 55%. Top bar retains Person Switcher, Search icon, and Notifications. In crisis mode the bar shows the five crisis items with More still available.
 
 ---
 
@@ -317,11 +357,11 @@ Some pages (Medications, Tasks, Documents) include a summary bar immediately bel
 
 Standard cards: white background, 1px `neutral-200` border, 8px border-radius, 16px padding. No drop shadow on cards within a list. Subtle drop shadow (`0 1px 4px rgba(0,0,0,0.06)`) on cards in a grid layout.
 
-Card hover state: `neutral-100` background or `blue-50` left border indicator, depending on context.
+Card hover state: `neutral-100` background or `brand-50` left border indicator, depending on context.
 
 ### Tables
 
-Used for Audit Log and Contacts list. Column headers: `sm` semibold, `neutral-500`. Row height: 44px. Alternating row background: white and `neutral-50`. Selected row: `blue-50` background.
+Used for Audit Log and Contacts list. Column headers: `sm` semibold, `neutral-500`. Row height: 44px. Alternating row background: white and `neutral-50`. Selected row: `brand-50` background.
 
 ### Detail Panes
 
@@ -380,7 +420,7 @@ Date badge (prominent — day and month, large), provider name (semibold), appoi
 Medication name (semibold), dosage + form + route in `sm` neutral text, frequency and schedule, refill status (days remaining, chip color: green → yellow → red as refill approaches). Prescriber name in metadata.
 
 ### Folder Tile
-In folder navigation: icon, folder name, item count. Active folder: `blue-600` text and icon. System folders have a lock icon. User folders have a folder icon.
+In folder navigation: icon, folder name, item count. Active folder: `brand-600` text and icon. System folders have a lock icon. User folders have a folder icon.
 
 ### Timeline Item
 Left: date column (date + time, xs, neutral-400). Center: content block — author avatar + name, event type badge, title (base semibold), body (base regular, 3 lines max), linked object chip. Right: action menu (... for user-authored entries). System entries are visually de-emphasized (lighter border, smaller type).
@@ -398,7 +438,7 @@ Used for overdue tasks, escalated reminders, and missed check-ins. 4px red left 
 A horizontal-rule-bounded block used for important notes that need to be separate from body text. 4px left border in the appropriate status color, `neutral-50` background, 16px padding. Used for crisis summaries, handoff notes, and escalation explanations.
 
 ### Quick-Add Button
-Persistent in the top-right of list views. "[ + Add Task ]" — primary button style (blue-600 background, white text). A secondary "quick add" shortcut (keyboard: `n` for note, `t` for task, `a` for appointment) opens a minimal modal requiring only the essential fields, with an "Add details later" option.
+Persistent in the top-right of list views. "[ + Add Task ]" — primary button style (brand-600 background, white text). A secondary "quick add" shortcut (keyboard: `n` for note, `t` for task, `a` for appointment) opens a minimal modal requiring only the essential fields, with an "Add details later" option.
 
 ### Assign Modal
 A small modal (360px wide) with a searchable list of care circle members, their avatars, role badges, and current task load count (e.g., "3 open tasks"). Single-select. Confirm button. Opens from ownership chip click.
@@ -444,7 +484,7 @@ Archiving moves a record to the Archive folder and removes it from active views.
 In-app notifications appear in the bell panel (right side of top bar). Unread count badge clears when panel is opened. Each notification has: icon (event type), title, body (one line), timestamp, and a "→" navigation affordance. Grouping: multiple task-due notifications for the same day are grouped as "3 tasks due tomorrow." Bulk "Mark all as read" option at top of panel.
 
 ### Hover, Focus, Keyboard Support
-All interactive elements respond to hover with a visual state change. Focus is indicated by a `2px blue-600` outline. Tab order follows the visual layout. Keyboard shortcuts are documented in a help modal (`?` key). Primary shortcuts: `/` (search), `n` (new note), `t` (new task), `a` (new appointment), `Escape` (close modal/pane), `Cmd+K` (command palette — Phase 5).
+All interactive elements respond to hover with a visual state change. Focus is indicated by a `2px brand-600` outline. Tab order follows the visual layout. Keyboard shortcuts are documented in a help modal (`?` key). Primary shortcuts: `/` (search), `n` (new note), `t` (new task), `a` (new appointment), `Escape` (close modal/pane), `Cmd+K` (command palette — Phase 5).
 
 ---
 
@@ -553,15 +593,15 @@ The folder system (detailed in README.md) must be rendered in a way that prevent
 
 The design system targets a component library structured as follows. Phase 0 ships with primitives; higher-level composites are added progressively.
 
-**Buttons:** Three variants: primary (solid blue), secondary (white + blue border), destructive (white + red border). Three sizes: sm (32px height), md (40px), lg (48px). All buttons have a loading state (spinner replaces label, button disabled). Icon-only buttons require a tooltip.
+**Buttons:** Three variants: primary (solid evergreen), secondary (white + evergreen border), destructive (white + red border). Three sizes: sm (32px height), md (40px), lg (48px). All buttons have a loading state (spinner replaces label, button disabled). Icon-only buttons require a tooltip.
 
 **Menus:** Dropdown menus use a white floating panel, 1px `neutral-200` border, 8px border-radius, light shadow. Menu items: 36px height, 16px horizontal padding, hover `neutral-100` background. Dividers between groups.
 
-**Tabs:** Horizontal tab bar, 40px height. Active tab: `blue-600` bottom border (2px), `blue-600` text. Inactive: `neutral-500` text. No background color change. On mobile: tabs scroll horizontally.
+**Tabs:** Horizontal tab bar, 40px height. Active tab: `brand-600` bottom border (2px), `brand-600` text. Inactive: `neutral-500` text. No background color change. On mobile: tabs scroll horizontally.
 
 **Sidebars / Drawers:** Right-side drawers (for detail panes) slide in from the right, 320–400px width. Left-side drawers (for mobile nav) slide from the left, 280px. Background scrim: `rgba(0,0,0,0.3)`. Close on scrim click or Escape.
 
-**Cards:** As described in Layout System. Hover states add a subtle left border in `blue-200`.
+**Cards:** As described in Layout System. Hover states add a subtle left border in `brand-200`.
 
 **Tables:** As described in Layout System. Sortable columns: sort icon (`neutral-400`, highlights to `neutral-900` when sorted) appears on hover of any column header.
 
@@ -569,13 +609,13 @@ The design system targets a component library structured as follows. Phase 0 shi
 
 **Modals:** Centered overlay, max-width 480px (small) to 720px (large). `neutral-900` scrim. Header: title (md semibold) + close button. Footer: primary action + cancel. Body scrolls if content overflows. Does not close on scrim click for destructive actions.
 
-**Inputs:** 40px height, 1px `neutral-300` border, 8px border-radius, 12px horizontal padding. Focus: `blue-600` border. Error: `red-400` border + error message below. Textarea: same border, 4px border-radius, min 80px height, resizable vertically only.
+**Inputs:** 40px height, 1px `neutral-300` border, 8px border-radius, 12px horizontal padding. Focus: `brand-600` border. Error: `red-400` border + error message below. Textarea: same border, 4px border-radius, min 80px height, resizable vertically only.
 
 **Search:** In top bar: 240px wide on desktop, expands to 400px on focus. Results appear in a floating panel below (max 480px wide, max 400px tall with scroll). Search within a page (documents, timeline) is a full-width bar at top of content area.
 
 **Filters:** A horizontal row of filter chips below the search bar (or below page heading). Active filter chips show a close (✕) affordance. Multiple filters can be active simultaneously. A "Clear all" link appears when any filter is active.
 
-**Toasts:** Bottom-center of screen, max-width 360px, 8px border-radius, white background, `neutral-900` text, subtle shadow. Types: success (green left border), error (red left border), info (blue left border), warning (yellow left border). Auto-dismiss after 4 seconds for success/info, no auto-dismiss for errors. Stack upward if multiple toasts are queued.
+**Toasts:** Bottom-center of screen, max-width 360px, 8px border-radius, white background, `neutral-900` text, subtle shadow. Types: success (green left border), error (red left border), info (brand left border), warning (yellow left border). Auto-dismiss after 4 seconds for success/info, no auto-dismiss for errors. Stack upward if multiple toasts are queued.
 
 **Alerts:** Full-width within a content area (not toasts). Used for page-level messages (e.g., "This care circle's trial ends in 3 days"). Dismissible. Type-colored left border, `neutral-50` background.
 
@@ -641,7 +681,7 @@ Full-page chronological view. Filter bar at top: All types | By author dropdown 
 
 Entry 1 (most recent — today, 9:14 AM): System event — grey badge "Appointment Completed." "Cardiology follow-up with Dr. Ramos completed. Outcome recorded by Sarah Chen." Linked chip: [↗ View Appointment]. 
 
-Entry 2 (today, 9:10 AM): User entry — blue "Update" badge. Author: Sarah Chen. Title: "Cardiology visit summary." Body: "Dr. Ramos reviewed the echocardiogram. Ejection fraction stable at 55%. No medication changes. Recommended follow-up in 6 months. Follow-up scheduling task created." [Expand] link. Linked chips: [Appointment — Cardiology 5/21] [Task — Schedule 6-month follow-up].
+Entry 2 (today, 9:10 AM): User entry — brand "Update" badge. Author: Sarah Chen. Title: "Cardiology visit summary." Body: "Dr. Ramos reviewed the echocardiogram. Ejection fraction stable at 55%. No medication changes. Recommended follow-up in 6 months. Follow-up scheduling task created." [Expand] link. Linked chips: [Appointment — Cardiology 5/21] [Task — Schedule 6-month follow-up].
 
 Entry 3 (yesterday, 4:30 PM): System — "Document Uploaded." "Lab Results – CBC May 14 uploaded by David Chen." Linked chip: [↗ View Document].
 
@@ -693,7 +733,7 @@ Right pane open, showing a selected task.
 
 **Actions:** Mark Complete · Extend Due Date · Reassign · Archive
 
-The "Mark Complete" button is prominent — primary blue. "Extend Due Date" opens a date picker inline. "Reassign" opens the Assign Modal.
+The "Mark Complete" button is prominent — primary evergreen. "Extend Due Date" opens a date picker inline. "Reassign" opens the Assign Modal.
 
 ---
 

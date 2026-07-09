@@ -29,7 +29,7 @@ export function SettingsNav() {
             className={cn(
               "whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "border-blue-600 text-blue-600"
+                ? "border-brand-600 text-brand-600"
                 : "border-transparent text-neutral-500 hover:text-neutral-900"
             )}
           >

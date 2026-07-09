@@ -281,14 +281,14 @@ function ProviderChoice({
   children?: React.ReactNode;
 }) {
   return (
-    <Card className={selected ? "border-blue-600 ring-1 ring-blue-600" : ""}>
+    <Card className={selected ? "border-brand-600 ring-1 ring-brand-600" : ""}>
       <button type="button" onClick={onSelect} className="flex w-full items-start gap-3 text-left">
         <span
           className={`mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-            selected ? "border-blue-600" : "border-neutral-300"
+            selected ? "border-brand-600" : "border-neutral-300"
           }`}
         >
-          {selected ? <span className="h-2 w-2 rounded-full bg-blue-600" /> : null}
+          {selected ? <span className="h-2 w-2 rounded-full bg-brand-600" /> : null}
         </span>
         <span className="flex-1">
           <span className="flex items-center gap-2">
@@ -303,7 +303,7 @@ function ProviderChoice({
           href={link.href}
           target="_blank"
           rel="noreferrer"
-          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
         >
           {link.label}
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -322,7 +322,7 @@ function CostEstimateCard({ estimate }: { estimate: CostEstimate }) {
         Based on your last 30 days of activity. Most care circles spend well under $1/month.
       </p>
       <div className="mt-3 flex items-baseline gap-2">
-        <span className="text-xl font-bold text-neutral-900">≈ {usd(estimate.estimatedMonthlyUsd)}</span>
+        <span className="font-mono text-xl font-bold text-neutral-900">≈ {usd(estimate.estimatedMonthlyUsd)}</span>
         <span className="text-sm text-neutral-500">/ month</span>
       </div>
       <dl className="mt-3 grid grid-cols-1 gap-1 text-sm text-neutral-600 sm:grid-cols-2">

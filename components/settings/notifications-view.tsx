@@ -62,7 +62,7 @@ export function NotificationsView() {
     <div className="mx-auto max-w-[1280px] p-6">
       <SettingsNav />
       <div className="mt-4">
-        <h1 className="text-lg font-semibold text-neutral-900">Notifications</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Notifications</h1>
         <p className="text-sm text-neutral-500">Choose how you&apos;re notified for each type of update.</p>
       </div>
 
@@ -94,7 +94,7 @@ export function NotificationsView() {
                       <input
                         type="checkbox"
                         aria-label={`${category.label} — ${channel.label}`}
-                        className="h-4 w-4 accent-blue-600"
+                        className="h-4 w-4 accent-brand-600"
                         checked={preferences[category.key][channel.key]}
                         disabled={saving}
                         onChange={() => void toggle(category.key, channel.key)}

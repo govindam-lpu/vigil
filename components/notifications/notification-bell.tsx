@@ -104,7 +104,7 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
         type="button"
         aria-label="Notifications"
         onClick={() => setOpen((value) => !value)}
-        className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+        className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
       >
         <Bell className="h-5 w-5" aria-hidden="true" />
         {unreadCount > 0 ? (
@@ -123,14 +123,14 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute right-0 z-50 mt-2 max-h-[28rem] w-80 overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.12)]">
+          <div className="absolute right-0 z-50 mt-2 max-h-[28rem] w-80 overflow-y-auto rounded-xl border border-neutral-200 bg-white shadow-pane">
             <div className="flex items-center justify-between border-b border-neutral-200 px-3 py-2">
               <p className="text-sm font-semibold text-neutral-900">Notifications</p>
               {unreadCount > 0 ? (
                 <button
                   type="button"
                   onClick={() => void markAllRead()}
-                  className="text-xs font-medium text-blue-600 hover:underline"
+                  className="text-xs font-medium text-brand-600 hover:underline"
                 >
                   Mark all as read
                 </button>
@@ -138,7 +138,7 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
             </div>
 
             {notifications.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-neutral-500">You&apos;re all caught up.</p>
+              <p className="px-3 py-6 text-center font-display text-sm tracking-tight text-neutral-500">You&apos;re all caught up.</p>
             ) : (
               groups.map((group) => (
                 <div key={group.label}>
@@ -152,7 +152,7 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
                     >
                       <div className="flex w-full items-center gap-2">
                         {!notification.is_read ? (
-                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600" aria-hidden="true" />
+                          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-600" aria-hidden="true" />
                         ) : (
                           <span className="h-1.5 w-1.5 shrink-0" aria-hidden="true" />
                         )}
@@ -165,7 +165,7 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
                         >
                           {notification.title}
                         </span>
-                        <span className="shrink-0 text-[10px] text-neutral-400">
+                        <span className="shrink-0 font-mono text-[10px] text-neutral-400">
                           {relativeTime(notification.created_at)}
                         </span>
                       </div>

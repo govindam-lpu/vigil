@@ -137,8 +137,8 @@ export function DashboardView({ profile }: DashboardViewProps) {
           <Card>
             <CardContent className="space-y-4">
               <div>
-                <h1 className="text-xl font-bold text-neutral-900">{personName}</h1>
-                <p className="mt-1 text-sm text-neutral-500">{age !== null ? `${age} years old` : "Age not set"}</p>
+                <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">{personName}</h1>
+                <p className="mt-1 font-mono text-sm text-neutral-500">{age !== null ? `${age} years old` : "Age not set"}</p>
                 <div className="mt-3">
                   <Badge variant={careModeVariant[person.current_care_mode]}>
                     {person.current_care_mode[0].toUpperCase()}
@@ -170,8 +170,16 @@ export function DashboardView({ profile }: DashboardViewProps) {
         </aside>
 
         <section className="space-y-5">
-          <div className="sticky top-14 z-10 -mx-2 flex items-center justify-between gap-2 bg-neutral-50 px-2 py-2">
-            <h2 className="text-lg font-semibold text-neutral-900">Welcome back, {profile.display_name}</h2>
+          <div className="sticky top-14 z-10 -mx-2 flex items-end justify-between gap-2 bg-neutral-50 px-2 py-2">
+            <div>
+              <p className="flex items-center gap-2 font-mono text-xs text-neutral-500">
+                <span className="ember-dot" aria-hidden="true" />
+                {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              </p>
+              <h2 className="mt-1 font-display text-lg font-semibold tracking-tight text-neutral-900">
+                Welcome back, {profile.display_name}
+              </h2>
+            </div>
             {activeCircle.membership.role === "owner" || activeCircle.membership.role === "coordinator" ? (
               <Button size="sm" variant="secondary" onClick={() => setHandoffOpen(true)}>
                 Hand off responsibility
@@ -208,7 +216,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
                 <div>
                   <div className="flex items-center gap-2">
                     <Badge variant={checkInVariant[lastCheckIn.status]}>{labelize(lastCheckIn.status)}</Badge>
-                    <span className="text-xs text-neutral-400">{relativeTime(lastCheckIn.occurred_at)}</span>
+                    <span className="font-mono text-xs text-neutral-400">{relativeTime(lastCheckIn.occurred_at)}</span>
                   </div>
                   <p className="mt-2 text-xs text-neutral-500">{lastCheckIn.author?.display_name ?? "Unknown member"}</p>
                   {lastCheckIn.notes ? <p className="mt-1 line-clamp-2 text-sm text-neutral-700">{lastCheckIn.notes}</p> : null}
@@ -217,7 +225,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
                 <p className="text-sm text-neutral-500">No check-ins yet.</p>
               )}
               <Button size="sm" variant="secondary" className="w-full" onClick={() => setCheckInOpen(true)}>
-                <HeartPulse className="h-4 w-4" aria-hidden="true" />
+                <span className="ember-dot" aria-hidden="true" />
                 Quick Check-in
               </Button>
             </CardContent>
@@ -257,7 +265,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
               ) : (
                 observations.slice(0, 3).map((observation) => (
                   <div key={observation.id} className="border-l-2 border-l-neutral-200 pl-2">
-                    <p className="text-xs font-medium text-neutral-500">
+                    <p className="font-mono text-xs font-medium text-neutral-500">
                       {labelize(observation.observation_type)}
                       {observation.severity ? ` · ${labelize(observation.severity)}` : ""} · {relativeTime(observation.occurred_at)}
                     </p>
@@ -361,7 +369,7 @@ function ObservationModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-5">
+      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-pane">
         <h2 className="text-md font-semibold text-neutral-900">Log observation</h2>
         <label className="mt-4 block">
           <span className="mb-1 block text-sm font-medium text-neutral-700">Type</span>
@@ -458,23 +466,23 @@ function ChangesCallout({
 
   const bullets = (
     <div className="mt-3 space-y-2 text-sm">
-      <Link href="/timeline" className="block font-medium text-blue-700 hover:underline">
+      <Link href="/timeline" className="block font-medium text-brand-700 hover:underline">
         {changes.totalTimelineEntries} new timeline entries
       </Link>
-      <Link href="/tasks" className="block font-medium text-blue-700 hover:underline">
+      <Link href="/tasks" className="block font-medium text-brand-700 hover:underline">
         {changes.tasksCompleted} tasks completed / {changes.tasksMissed} tasks missed
       </Link>
-      <Link href="/documents" className="block font-medium text-blue-700 hover:underline">
+      <Link href="/documents" className="block font-medium text-brand-700 hover:underline">
         {changes.newDocuments} new documents
       </Link>
-      <Link href="/notes" className="block font-medium text-blue-700 hover:underline">
+      <Link href="/notes" className="block font-medium text-brand-700 hover:underline">
         {changes.notesAdded} notes added
       </Link>
     </div>
   );
 
   return (
-    <div className="border-l-4 border-l-blue-600 bg-blue-50 p-4">
+    <div className="border-l-4 border-l-brand-600 bg-brand-50 p-4">
       <h3 className="text-base font-semibold text-neutral-900">
         Since your last visit ({relativeTime(changes.lastCaughtUpAt)}):
       </h3>
@@ -482,7 +490,7 @@ function ChangesCallout({
         <>
           <p className="mt-3 whitespace-pre-wrap text-sm text-neutral-800">{summary}</p>
           <button
-            className="mt-2 text-sm font-medium text-blue-700 hover:underline"
+            className="mt-2 text-sm font-medium text-brand-700 hover:underline"
             onClick={() => setShowBullets((value) => !value)}
           >
             {showBullets ? "Hide activity list" : "Show full activity list"}
@@ -532,13 +540,13 @@ function StatLink({ href, icon: Icon, label, value }: StatLinkProps) {
   return (
     <Link
       href={href}
-      className="flex h-11 items-center justify-between rounded-md px-2 text-sm hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+      className="flex h-11 items-center justify-between rounded-md px-2 text-sm hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
     >
       <span className="flex items-center gap-2 font-medium text-neutral-700">
         <Icon className="h-4 w-4 text-neutral-500" aria-hidden="true" />
         {label}
       </span>
-      <span className="font-semibold text-neutral-900">{value}</span>
+      <span className="font-mono font-semibold text-neutral-900">{value}</span>
     </Link>
   );
 }

@@ -19,7 +19,7 @@ function DropdownMenuContent({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          "z-50 min-w-48 rounded-lg border border-neutral-200 bg-white p-1 shadow-elevated",
+          "z-50 min-w-48 rounded-xl border border-neutral-200 bg-white p-1 shadow-pane",
           className
         )}
         {...props}

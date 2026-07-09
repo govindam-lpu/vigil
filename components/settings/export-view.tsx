@@ -74,7 +74,7 @@ export function ExportView() {
     <div className="mx-auto max-w-[1280px] p-6">
       <SettingsNav />
       <div className="mt-4">
-        <h1 className="text-lg font-semibold text-neutral-900">Export</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Export</h1>
         <p className="text-sm text-neutral-500">Download this care circle&apos;s full record.</p>
       </div>
 
@@ -90,7 +90,7 @@ export function ExportView() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Card className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <FileJson className="h-5 w-5 text-blue-600" aria-hidden="true" />
+              <FileJson className="h-5 w-5 text-brand-600" aria-hidden="true" />
               <h2 className="text-md font-semibold text-neutral-900">Full data export (JSON)</h2>
             </div>
             <p className="text-sm text-neutral-500">
@@ -106,7 +106,7 @@ export function ExportView() {
 
           <Card className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
+              <FileText className="h-5 w-5 text-brand-600" aria-hidden="true" />
               <h2 className="text-md font-semibold text-neutral-900">Care summary (PDF)</h2>
             </div>
             <p className="text-sm text-neutral-500">

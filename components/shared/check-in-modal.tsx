@@ -49,7 +49,7 @@ export function CheckInModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-5">
+      <div className="w-full max-w-md rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Quick Check-in</h2>
         <div className="mt-4 flex gap-2">
           {options.map((option) => (
@@ -57,7 +57,7 @@ export function CheckInModal({
               key={option.value}
               className={
                 status === option.value
-                  ? "flex-1 rounded-lg border-2 border-blue-600 bg-blue-50 py-2 text-sm font-semibold text-neutral-900"
+                  ? "flex-1 rounded-lg border-2 border-brand-600 bg-brand-50 py-2 text-sm font-semibold text-neutral-900"
                   : "flex-1 rounded-lg border border-neutral-200 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
               }
               onClick={() => setStatus(option.value)}
