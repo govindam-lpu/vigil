@@ -19,6 +19,20 @@ Use this as the short-form memory for a new session.
 
 ## Current Status
 
+- **REDESIGN IN PROGRESS (branch `redesign`, off `main`).** Front-end-only visual redesign — the
+  **"Night Watch"** identity (see DESIGN.md "Visual Identity"). No security/RLS/API/data-model changes.
+  Foundation: three type voices (**Spline Sans** UI / **Spline Sans Mono** record-data / **Literata**
+  serif for the person + wordmark + page titles), a green-cast stone neutral scale (`neutral-50` porcelain
+  → `900` ink), **evergreen brand** (`brand-600` #2E5A4A, replacing the old `blue-600`), a **night rail**
+  navigation surface (`night` #12211C sidebar + mobile bottom nav), and the **ember** signature accent
+  (`#E8A33D` — the "keeping watch" lamp: wordmark, active-nav bar, today markers, quick check-in only;
+  never status). Tokens live in `tailwind.config.ts`; ember/scrollbar/reduced-motion CSS in
+  `app/globals.css`; fonts in `app/layout.tsx`. New shell files: `components/shell/wordmark.tsx` +
+  `mobile-nav.tsx` (bottom tab bar + More sheet). Login/onboarding = a night/daylight "threshold" split.
+  Timeline gained a real spine (mono date rail + connective line + per-entry node). Recharts palette in
+  `analytics-charts.tsx` moved off blue onto evergreen+stone (status hues unchanged). **All 4 static gates
+  green; live-verified in the browser desktop + 375px mobile (login, dashboard, timeline, More sheet).**
+  Crisis red semantics deliberately untouched. NOT yet merged to `main`/PR'd — on `redesign` branch.
 - **HARDENING PASS DONE (branch `hardening-pass`, off Phase 5 HEAD).** Full record in `HARDENING_PASS_REPORT.md`. Security audit (4 subagents + live PostgREST probe under a real coordinator JWT) found + fixed **3 confirmed privilege escalations that were API-enforced but not DB-enforced**: coordinator→owner role change, permission-override self-grant/owner-tamper, and `care_circles.owner_id` hijack. Fixed via BEFORE-trigger guards in **migration `202607080009` (AUTHORED — USER MUST APPLY)**, verified in a rolled-back transaction (6 exploits blocked, legit flows intact). Also: `202607080010` (notification `action_url` same-origin DB CHECK); code fixes for `checkMembership` deleted_at/expires_at, `documents.delete`/`notes.private` enforcement, signed Google-OAuth `state` (was CSRF), `.ics` size/event caps, tasks/comments audit, handoff.until validation. Perf: Recharts code-split on `/settings/analytics` (~214→107 kB), removed per-nav memberships COUNT in middleware, search-on-submit, Settings loading-flash fix + `Skeleton`. All 4 gates green; live-verified in browser. **Migrations `202607080009`+`202607080010` APPLIED + re-probed (0 VULN — all 4 escalations blocked `P0001`); `migration list` local==remote through 10. PENDING USER ACTIONS: (1) rotate `SUPABASE_SERVICE_ROLE_KEY`; (2) plan Next 16 upgrade for the `npm audit` highs (Next 14.2.35 is latest 14.2.x — no non-breaking fix; DoS/cache advisories only matter once deployed). DEFERRED: TanStack Query adoption (tab-switch cache), remaining views' loading-flash, `/api/workspaces` N+1 RPC, notes-branch GIN index. THEN: DESIGN.md redesign of Phase 5 UI.**
 - **Phases 0–5 ALL COMPLETE + merged to `main` (2026-07-08).** Phase 5 = Advanced Collaboration (`PHASE_5_PLAN.md`); migrations `202607080003`–`202607080008` authored + applied (new session: confirm via `npx supabase migration list`). **No more feature phases.** **Next: a security-audit + performance + bug-fix hardening pass, then redesign — full brief in `NEXT_SESSION_HANDOFF.md`.**
 - **Phase 4 (Crisis & Continuity):** crisis-mode UI lens, Emergency Packet PDF, in-app notifications + pg_cron reminder job, offline service worker. Migrations `202607080001` (APPLIED, pg_cron enabled) + `202607080002` (reminder-job hardening — confirm applied). Live e2e 36/37. Full record in `PHASE_4_PLAN.md`.

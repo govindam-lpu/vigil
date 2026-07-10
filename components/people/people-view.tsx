@@ -121,7 +121,7 @@ export function PeopleView() {
   return (
     <div className="mx-auto max-w-[1280px] p-6">
       <div className="sticky top-14 z-20 -mx-2 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
-        <h1 className="text-lg font-semibold text-neutral-900">People &amp; Roles</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">People &amp; Roles</h1>
         <p className="text-sm text-neutral-500">Members of this care circle, the person&apos;s profile, and the care team.</p>
       </div>
 
@@ -333,7 +333,7 @@ function ContactsSection({
   };
 
   return (
-    <section className="mt-6 rounded-lg border border-neutral-200 bg-white">
+    <section className="mt-6 rounded-xl border border-neutral-200 bg-white">
       <div className="flex items-center justify-between border-b border-neutral-200 p-4">
         <div>
           <h2 className="text-md font-semibold text-neutral-900">Care Team Contacts</h2>
@@ -348,7 +348,7 @@ function ContactsSection({
       </div>
 
       {contacts.length === 0 ? (
-        <p className="p-4 text-sm text-neutral-600">No contacts yet. Add doctors, pharmacies, and other care-team members.</p>
+        <p className="p-4 font-display text-sm tracking-tight text-neutral-600">No contacts yet. Add doctors, pharmacies, and other care-team members.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
@@ -369,8 +369,8 @@ function ContactsSection({
                   <td className="px-4 py-2 font-medium text-neutral-900">{contact.name}</td>
                   <td className="px-4 py-2 text-neutral-600">{contact.organization || "—"}</td>
                   <td className="px-4 py-2">{contact.role ? <Badge variant="neutral">{labelize(contact.role)}</Badge> : "—"}</td>
-                  <td className="px-4 py-2 text-neutral-600">{contact.phone || "—"}</td>
-                  <td className="px-4 py-2 text-neutral-600">{contact.email || "—"}</td>
+                  <td className="px-4 py-2 font-mono text-neutral-600">{contact.phone || "—"}</td>
+                  <td className="px-4 py-2 font-mono text-neutral-600">{contact.email || "—"}</td>
                   <td className="px-4 py-2">
                     {contact.is_emergency_contact ? <Star className="h-4 w-4 fill-red-500 text-red-500" aria-label="Emergency contact" /> : null}
                   </td>
@@ -554,7 +554,7 @@ function HouseholdsSection({
   };
 
   return (
-    <section className="mt-6 rounded-lg border border-neutral-200 bg-white">
+    <section className="mt-6 rounded-xl border border-neutral-200 bg-white">
       <div className="flex items-center justify-between border-b border-neutral-200 p-4">
         <div>
           <h2 className="text-md font-semibold text-neutral-900">Locations</h2>
@@ -569,7 +569,7 @@ function HouseholdsSection({
       </div>
 
       {households.length === 0 ? (
-        <p className="p-4 text-sm text-neutral-600">
+        <p className="p-4 font-display text-sm tracking-tight text-neutral-600">
           No locations yet. Add a home or facility with its address and access notes.
         </p>
       ) : (
@@ -731,7 +731,7 @@ function HouseholdModal({
                   <label key={contact.id} className="flex items-center gap-2 text-sm text-neutral-700">
                     <input
                       type="checkbox"
-                      className="h-4 w-4 accent-blue-600"
+                      className="h-4 w-4 accent-brand-600"
                       checked={linkedContactIds.includes(contact.id)}
                       onChange={() => toggleContact(contact.id)}
                     />

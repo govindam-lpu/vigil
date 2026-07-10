@@ -18,6 +18,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCrisisMode } from "./crisis-mode-provider";
+import { Wordmark } from "./wordmark";
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 
@@ -42,9 +43,24 @@ const crisisItems: NavItem[] = [
   { href: "/timeline", label: "Timeline", icon: Activity }
 ];
 
+const itemClasses =
+  "relative flex h-10 items-center gap-3 rounded-lg px-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white/90 focus-visible:outline-white";
+const activeItemClasses = "bg-white/[0.07] text-white hover:bg-white/[0.07] hover:text-white";
+
+// The ember lamp: marks the active page on the night rail (DESIGN — Visual Identity).
+function EmberLamp() {
+  return (
+    <span
+      className="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-ember shadow-ember"
+      aria-hidden="true"
+    />
+  );
+}
+
+// The night rail: full-height evergreen navigation surface (DESIGN — Visual Identity).
 export function Sidebar() {
   const pathname = usePathname();
-  const { crisisMode, bannerOffsetPx } = useCrisisMode();
+  const { crisisMode } = useCrisisMode();
   const [showAll, setShowAll] = useState(false);
 
   const condensed = crisisMode && !showAll;
@@ -55,25 +71,25 @@ export function Sidebar() {
     const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
     return (
-      <Link
-        key={item.href}
-        href={item.href}
-        className={cn(
-          "flex h-10 items-center gap-3 rounded-md border-l-[3px] border-transparent px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-200",
-          active && "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-50"
-        )}
-      >
-        <Icon className="h-5 w-5" aria-hidden="true" />
+      <Link key={item.href} href={item.href} className={cn(itemClasses, active && activeItemClasses)}>
+        {active ? <EmberLamp /> : null}
+        <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
         {item.label}
       </Link>
     );
   };
 
   return (
-    <aside
-      className="fixed bottom-0 left-0 hidden w-60 flex-col border-r border-neutral-200 bg-neutral-100 lg:flex"
-      style={{ top: 56 + bannerOffsetPx }}
-    >
+    <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col bg-night lg:flex">
+      <div className="flex h-14 shrink-0 items-center px-5">
+        <Link
+          href="/dashboard"
+          className="rounded-md focus-visible:outline-white"
+          aria-label="Vigil — go to dashboard"
+        >
+          <Wordmark className="text-[21px] text-white" />
+        </Link>
+      </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {items.map(renderItem)}
         <div className="flex-1" />
@@ -82,7 +98,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => setShowAll((value) => !value)}
-            className="flex h-10 items-center justify-between gap-3 rounded-md px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-200"
+            className="flex h-10 items-center justify-between gap-3 rounded-lg px-3 text-sm font-medium text-white/60 transition-colors hover:bg-white/5 hover:text-white/90 focus-visible:outline-white"
           >
             <span>{showAll ? "Crisis view" : "All sections"}</span>
             {showAll ? (
@@ -94,16 +110,16 @@ export function Sidebar() {
         ) : null}
 
         {!condensed ? (
-          <Link
-            href="/settings"
-            className={cn(
-              "flex h-10 items-center gap-3 rounded-md border-l-[3px] border-transparent px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-200",
-              pathname.startsWith("/settings") && "border-blue-600 bg-blue-50 text-blue-600 hover:bg-blue-50"
-            )}
-          >
-            <Settings className="h-5 w-5" aria-hidden="true" />
-            Settings
-          </Link>
+          <div className="border-t border-white/10 pt-3">
+            <Link
+              href="/settings"
+              className={cn(itemClasses, pathname.startsWith("/settings") && activeItemClasses)}
+            >
+              {pathname.startsWith("/settings") ? <EmberLamp /> : null}
+              <Settings className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden="true" />
+              Settings
+            </Link>
+          </div>
         ) : null}
       </nav>
     </aside>

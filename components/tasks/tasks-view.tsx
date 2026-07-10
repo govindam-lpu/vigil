@@ -170,7 +170,7 @@ function TasksContent() {
     <div className="mx-auto max-w-[1280px] p-6">
       <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Tasks</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Tasks</h1>
           <p className="text-sm text-neutral-500">Track ownership, due dates, and completion.</p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
@@ -186,14 +186,14 @@ function TasksContent() {
       ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="min-w-0 rounded-lg border border-neutral-200 bg-white">
+        <section className="min-w-0 rounded-xl border border-neutral-200 bg-white">
           <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 p-3">
             {(["all", "mine", "overdue", "unassigned", "week"] as TaskFilter[]).map((item) => (
               <button
                 key={item}
                 className={cn(
                   "h-8 rounded-full border px-3 text-sm font-medium",
-                  filter === item ? "border-blue-600 bg-blue-50 text-blue-600" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100"
+                  filter === item ? "border-brand-600 bg-brand-50 text-brand-600" : "border-neutral-200 text-neutral-600 hover:bg-neutral-100"
                 )}
                 onClick={() => setFilter(item)}
               >
@@ -220,7 +220,7 @@ function TasksContent() {
           {visibleTasks.length === 0 ? (
             <div className="flex items-start gap-3 p-5 text-neutral-600">
               <CheckSquare className="mt-1 h-5 w-5 text-neutral-400" aria-hidden="true" />
-              <p>No tasks yet. Tasks make it clear who is responsible for what and when.</p>
+              <p><span className="font-display tracking-tight">No tasks yet.</span> Tasks make it clear who is responsible for what and when.</p>
             </div>
           ) : (
             visibleTasks.map((task) => (
@@ -253,9 +253,9 @@ function TasksContent() {
       ) : null}
 
       {toast ? (
-        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-elevated">
+        <div className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-elevated">
           <span className="text-sm text-neutral-900">Task marked complete.</span>
-          <button className="text-sm font-semibold text-blue-600" onClick={undoComplete}>
+          <button className="text-sm font-semibold text-brand-600" onClick={undoComplete}>
             Undo
           </button>
         </div>
@@ -284,7 +284,7 @@ function TaskRow({
     <div
       className={cn(
         "grid cursor-pointer grid-cols-[44px_minmax(180px,1fr)_160px_100px_92px_92px_40px] items-center gap-3 border-b border-neutral-100 px-3 py-2 text-sm hover:bg-neutral-50",
-        selected && "bg-blue-50",
+        selected && "bg-brand-50",
         overdue && "border-l-4 border-l-red-600 bg-red-50"
       )}
       onClick={onSelect}
@@ -307,7 +307,7 @@ function TaskRow({
         {task.assignee ? <Avatar name={task.assignee.display_name} src={task.assignee.avatar_url} className="h-6 w-6" /> : null}
         <span className={cn("truncate", !task.assignee && "text-neutral-400")}>{task.assignee?.display_name ?? "Unassigned"}</span>
       </button>
-      <span className={cn(due.overdue && task.status !== "done" ? "font-semibold text-red-600" : "text-neutral-600")}>{due.label}</span>
+      <span className={cn("font-mono", due.overdue && task.status !== "done" ? "font-semibold text-red-600" : "text-neutral-600")}>{due.label}</span>
       <Badge variant={priorityVariant[task.priority]}>{labelize(task.priority)}</Badge>
       <Badge variant={statusVariant[task.status]}>{labelize(task.status)}</Badge>
       <select
@@ -367,7 +367,7 @@ function TaskDetail({
   };
 
   return (
-    <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-4">
+    <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-4">
       <h2 className="text-md font-semibold text-neutral-900">{task.title}</h2>
       <DescriptionEditor key={task.id} task={task} onReload={onReload} />
       <div className="mt-4 space-y-3">

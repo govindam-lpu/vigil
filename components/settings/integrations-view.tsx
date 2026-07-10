@@ -145,7 +145,7 @@ export function IntegrationsView() {
     <div className="mx-auto max-w-[1280px] p-6">
       <SettingsNav />
       <div className="mt-4">
-        <h1 className="text-lg font-semibold text-neutral-900">Integrations</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Integrations</h1>
         <p className="text-sm text-neutral-500">Import care appointments from your calendar. Vigil never writes back to it.</p>
       </div>
 
@@ -170,14 +170,14 @@ export function IntegrationsView() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <CalendarPlus className="h-5 w-5 text-blue-600" aria-hidden="true" />
+            <CalendarPlus className="h-5 w-5 text-brand-600" aria-hidden="true" />
             <h2 className="text-md font-semibold text-neutral-900">Google Calendar</h2>
           </div>
           <p className="text-sm text-neutral-500">Connect read-only access, then review suggested care appointments.</p>
           <div className="flex flex-wrap gap-2">
             <a
               href={`/api/integrations/calendar/google/connect?careCircleId=${careCircleId}`}
-              className="inline-flex h-8 items-center rounded-lg border border-blue-600 bg-white px-3 text-sm font-medium text-blue-600 hover:bg-blue-50"
+              className="inline-flex h-8 items-center rounded-lg border border-brand-600 bg-white px-3 text-sm font-medium text-brand-600 hover:bg-brand-50"
             >
               Connect Google Calendar
             </a>
@@ -189,11 +189,11 @@ export function IntegrationsView() {
 
         <Card className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
-            <Upload className="h-5 w-5 text-blue-600" aria-hidden="true" />
+            <Upload className="h-5 w-5 text-brand-600" aria-hidden="true" />
             <h2 className="text-md font-semibold text-neutral-900">Apple / .ics file</h2>
           </div>
           <p className="text-sm text-neutral-500">Export a .ics from your calendar app and upload it here — no account needed.</p>
-          <label className="inline-flex h-8 w-fit cursor-pointer items-center rounded-lg border border-blue-600 bg-white px-3 text-sm font-medium text-blue-600 hover:bg-blue-50">
+          <label className="inline-flex h-8 w-fit cursor-pointer items-center rounded-lg border border-brand-600 bg-white px-3 text-sm font-medium text-brand-600 hover:bg-brand-50">
             Upload .ics
             <input
               type="file"
@@ -235,7 +235,7 @@ export function IntegrationsView() {
                 <label key={`${event.summary}-${index}`} className="flex items-start gap-3 rounded-lg border border-neutral-200 p-3">
                   <input
                     type="checkbox"
-                    className="mt-1 h-4 w-4 accent-blue-600"
+                    className="mt-1 h-4 w-4 accent-brand-600"
                     checked={selected.has(index)}
                     onChange={(changeEvent) => {
                       const next = new Set(selected);
@@ -247,7 +247,7 @@ export function IntegrationsView() {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-neutral-900">{event.summary}</p>
                     <p className="text-xs text-neutral-500">
-                      {event.start ? formatDateTime(event.start) : "No date"}
+                      <span className="font-mono">{event.start ? formatDateTime(event.start) : "No date"}</span>
                       {event.location ? ` · ${event.location}` : ""}
                     </p>
                     {event.matchReason ? <p className="mt-1 text-xs text-neutral-400">{event.matchReason}</p> : null}

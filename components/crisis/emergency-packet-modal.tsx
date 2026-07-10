@@ -81,12 +81,12 @@ export function EmergencyPacketModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="w-full max-w-md rounded-lg bg-white p-5">
+      <div className="w-full max-w-md rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Emergency Packet</h2>
 
         {status === "loading" ? (
           <div className="mt-6 flex flex-col items-center gap-3 py-6 text-center">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600" aria-hidden="true" />
+            <Loader2 className="h-6 w-6 animate-spin text-brand-600" aria-hidden="true" />
             <p className="text-sm text-neutral-600">Preparing the Emergency Packet…</p>
           </div>
         ) : null}
@@ -117,7 +117,7 @@ export function EmergencyPacketModal({
             </div>
             <div className="mt-4 rounded-lg border border-yellow-600/40 bg-yellow-50 p-3">
               <p className="text-xs text-yellow-800">
-                This link expires in 24 hours. Anyone with the link can view it.
+                This link expires in <span className="font-mono">24 hours</span>. Anyone with the link can view it.
               </p>
             </div>
             <div className="mt-5 flex justify-end">

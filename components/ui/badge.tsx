@@ -5,7 +5,7 @@ type BadgeVariant = "neutral" | "primary" | "green" | "yellow" | "red" | "orange
 
 const variants: Record<BadgeVariant, string> = {
   neutral: "border-neutral-200 bg-neutral-100 text-neutral-700",
-  primary: "border-blue-100 bg-blue-50 text-blue-600",
+  primary: "border-brand-100 bg-brand-50 text-brand-600",
   green: "border-green-100 bg-green-50 text-green-700",
   yellow: "border-yellow-100 bg-yellow-50 text-yellow-700",
   red: "border-red-100 bg-red-50 text-red-700",

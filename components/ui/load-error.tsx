@@ -8,7 +8,7 @@ type LoadErrorProps = {
 // empty state. Tokens: red-400 border, red-50 background, red-600 text.
 export function LoadError({ message, onRetry }: LoadErrorProps) {
   return (
-    <div role="alert" className="rounded-lg border border-red-400 bg-red-50 p-4">
+    <div role="alert" className="rounded-xl border border-red-400 bg-red-50 p-4">
       <p className="text-sm font-medium text-red-600">{message}</p>
       {onRetry ? (
         <button

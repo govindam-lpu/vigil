@@ -138,10 +138,10 @@ export function SuggestionBanner({
   };
 
   return (
-    <div className="mt-4 rounded-r-lg border-l-4 border-l-blue-600 bg-blue-50 p-4">
+    <div className="mt-4 rounded-r-lg border-l-4 border-l-brand-600 bg-brand-50 p-4">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 shrink-0 text-blue-600" aria-hidden="true" />
+          <Sparkles className="h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
           <p className="text-sm font-semibold text-neutral-900">
             We found some information in this document. Add it to {personName}&apos;s record?
           </p>

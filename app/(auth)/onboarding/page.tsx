@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Wordmark } from "@/components/shell/wordmark";
 import type { Folder as FolderRecord, Person } from "@/lib/types";
 import { formatPersonName } from "@/lib/utils";
 
@@ -72,10 +73,13 @@ export default function OnboardingPage() {
     return (
       <main className="min-h-screen bg-neutral-50 px-6 py-10">
         <div className="mx-auto max-w-2xl">
+          <Wordmark className="mb-6 text-lg text-neutral-900" />
           <Card>
             <CardHeader>
-              <p className="text-sm font-medium text-neutral-500">Step 2 of 2</p>
-              <CardTitle>Your care circle for {personName} is ready.</CardTitle>
+              <p className="font-mono text-sm font-medium text-neutral-500">Step 2 of 2</p>
+              <CardTitle className="font-display text-lg tracking-tight">
+                Your care circle for {personName} is ready.
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -93,7 +97,7 @@ export default function OnboardingPage() {
                 <Button type="button" onClick={() => router.push("/dashboard")}>
                   Go to Dashboard
                 </Button>
-                <Link className="text-sm font-medium text-blue-600 hover:underline" href="/settings/members">
+                <Link className="text-sm font-medium text-brand-600 hover:underline" href="/settings/members">
                   Invite a family member
                 </Link>
               </div>
@@ -107,10 +111,11 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-neutral-50 px-6 py-10">
       <div className="mx-auto max-w-2xl">
+        <Wordmark className="mb-6 text-lg text-neutral-900" />
         <Card>
           <CardHeader>
-            <p className="text-sm font-medium text-neutral-500">Step 1 of 2</p>
-            <CardTitle>Create your care circle</CardTitle>
+            <p className="font-mono text-sm font-medium text-neutral-500">Step 1 of 2</p>
+            <CardTitle className="font-display text-lg tracking-tight">Create your care circle</CardTitle>
           </CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={submit}>

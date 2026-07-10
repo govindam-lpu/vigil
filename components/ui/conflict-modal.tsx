@@ -30,7 +30,7 @@ export function ConflictModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-md font-semibold text-neutral-900">Someone else made changes</h2>
@@ -61,12 +61,12 @@ export function ConflictModal({
         ) : (
           <>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <div className="rounded-lg border border-brand-200 bg-brand-50 p-3">
                 <p className="text-sm font-semibold text-neutral-900">Your version</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700">{yourValue || "(empty)"}</p>
               </div>
               <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-                <p className="text-sm font-semibold text-neutral-900">{savedByLabel}</p>
+                <p className="font-mono text-sm font-semibold text-neutral-900">{savedByLabel}</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700">{theirValue || "(empty)"}</p>
               </div>
             </div>

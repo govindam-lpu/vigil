@@ -61,7 +61,7 @@ export function CrisisDocumentsView() {
   return (
     <div className="mx-auto max-w-[1280px] space-y-4 p-6">
       <div>
-        <h1 className="text-lg font-semibold text-neutral-900">Emergency Packet documents</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Emergency Packet documents</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Showing documents pinned for crisis. Use &ldquo;All sections&rdquo; in the sidebar to browse the full library.
         </p>
@@ -86,7 +86,7 @@ export function CrisisDocumentsView() {
                 <button
                   type="button"
                   onClick={() => void openDocument(document.id)}
-                  className="shrink-0 text-sm font-medium text-blue-600 hover:underline"
+                  className="shrink-0 text-sm font-medium text-brand-600 hover:underline"
                 >
                   View
                 </button>

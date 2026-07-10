@@ -114,7 +114,14 @@ export function CrisisDashboard() {
             </div>
             <p className="mt-1 text-sm text-neutral-700">
               {activatedByName ? `Activated by ${activatedByName}` : "Crisis mode active"}
-              {session ? ` at ${formatDateTime(session.activated_at)}` : ""}
+              {session ? (
+                <>
+                  {" at "}
+                  <span className="font-mono">{formatDateTime(session.activated_at)}</span>
+                </>
+              ) : (
+                ""
+              )}
               {session?.reason ? ` · ${session.reason}` : ""}
             </p>
           </div>
@@ -149,10 +156,10 @@ export function CrisisDashboard() {
                     {medications.map((med) => (
                       <tr key={med.id} className="border-t border-neutral-100">
                         <td className="py-1.5 pr-3 font-medium text-neutral-900">{med.name}</td>
-                        <td className="py-1.5 pr-3 text-neutral-700">
+                        <td className="py-1.5 pr-3 font-mono text-neutral-700">
                           {[med.dosage, med.unit].filter(Boolean).join(" ") || "—"}
                         </td>
-                        <td className="py-1.5 text-neutral-700">{med.frequency || "—"}</td>
+                        <td className="py-1.5 font-mono text-neutral-700">{med.frequency || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -178,12 +185,12 @@ export function CrisisDashboard() {
                       {[contact.role ? labelize(contact.role) : null, contact.organization].filter(Boolean).join(" · ") ||
                         "Contact"}
                     </p>
-                    {contact.phone ? <p className="text-sm text-neutral-700">{contact.phone}</p> : null}
+                    {contact.phone ? <p className="font-mono text-sm text-neutral-700">{contact.phone}</p> : null}
                   </div>
                   {contact.phone ? (
                     <a
                       href={`tel:${contact.phone}`}
-                      className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+                      className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-brand-600 hover:underline"
                     >
                       <Phone className="h-3.5 w-3.5" aria-hidden="true" />
                       Call
@@ -214,7 +221,7 @@ export function CrisisDashboard() {
                 <button
                   type="button"
                   onClick={() => void openDocument(document.id)}
-                  className="shrink-0 text-sm font-medium text-blue-600 hover:underline"
+                  className="shrink-0 text-sm font-medium text-brand-600 hover:underline"
                 >
                   View
                 </button>
@@ -236,7 +243,7 @@ export function CrisisDashboard() {
             <ul className="divide-y divide-neutral-100">
               {timeline.map((event) => (
                 <li key={event.id} className="flex items-baseline gap-3 py-2">
-                  <span className="w-28 shrink-0 text-xs text-neutral-400">{relativeTime(event.occurred_at)}</span>
+                  <span className="w-28 shrink-0 font-mono text-xs text-neutral-400">{relativeTime(event.occurred_at)}</span>
                   <div className="min-w-0">
                     <span className="text-sm font-medium text-neutral-900">{event.title}</span>
                     <span className="ml-2 text-xs text-neutral-500">{event.author?.display_name ?? "System"}</span>
@@ -245,7 +252,7 @@ export function CrisisDashboard() {
               ))}
             </ul>
           )}
-          <Link href="/timeline" className="mt-3 inline-block text-sm font-medium text-blue-600 hover:underline">
+          <Link href="/timeline" className="mt-3 inline-block text-sm font-medium text-brand-600 hover:underline">
             View full timeline →
           </Link>
         </CardContent>

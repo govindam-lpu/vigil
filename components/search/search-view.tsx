@@ -57,7 +57,7 @@ function SearchContent() {
   return (
     <div className="mx-auto max-w-[960px] p-6">
       <div className="sticky top-14 z-20 -mx-2 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
-        <h1 className="text-lg font-semibold text-neutral-900">Search</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Search</h1>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Input value={query} onChange={(event) => setQuery(event.target.value)} className="max-w-md" />
           {circles.length > 1 ? (
@@ -69,7 +69,7 @@ function SearchContent() {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {(["all", "timeline", "task", "appointment", "document", "note"] as SearchTab[]).map((item) => (
-            <button key={item} className={`h-8 rounded-full border px-3 text-sm font-medium ${tab === item ? "border-blue-600 bg-blue-50 text-blue-600" : "border-neutral-200 bg-white text-neutral-600"}`} onClick={() => setTab(item)}>
+            <button key={item} className={`h-8 rounded-full border px-3 text-sm font-medium ${tab === item ? "border-brand-600 bg-brand-50 text-brand-600" : "border-neutral-200 bg-white text-neutral-600"}`} onClick={() => setTab(item)}>
               {labelize(item)}
             </button>
           ))}
@@ -78,14 +78,14 @@ function SearchContent() {
       <section className="mt-5 space-y-3">
         {visible.length === 0 ? (
           <Card>
-            <p className="text-base text-neutral-600">No results found.</p>
+            <p className="font-display text-base tracking-tight text-neutral-600">No results found.</p>
           </Card>
         ) : (
           visible.map((result) => (
-            <Link key={`${result.result_type}-${result.object_id}`} href={hrefForResult(result)} className="block rounded-lg border border-neutral-200 bg-white p-4 hover:bg-neutral-50">
+            <Link key={`${result.result_type}-${result.object_id}`} href={hrefForResult(result)} className="block rounded-xl border border-neutral-200 bg-white p-4 hover:bg-neutral-50">
               <div className="flex items-center gap-2">
                 <Badge variant="neutral">{labelize(result.result_type)}</Badge>
-                <span className="text-xs text-neutral-400">{formatDateTime(result.occurred_at)}</span>
+                <span className="font-mono text-xs text-neutral-400">{formatDateTime(result.occurred_at)}</span>
               </div>
               <h2 className="mt-2 text-base font-semibold text-neutral-900">{result.title}</h2>
               <p className="mt-1 text-sm text-neutral-600" dangerouslySetInnerHTML={{ __html: renderSnippet(result.snippet) }} />

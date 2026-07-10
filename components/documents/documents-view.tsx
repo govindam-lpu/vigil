@@ -166,7 +166,7 @@ function DocumentsContent() {
     <div className="mx-auto max-w-[1280px] p-6">
       <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Documents</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Documents</h1>
           <p className="text-sm text-neutral-500">Organize files by folder and crisis visibility.</p>
         </div>
         <Button onClick={() => setModalOpen(true)}>
@@ -182,7 +182,7 @@ function DocumentsContent() {
       ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
-        <aside className="rounded-lg border border-neutral-200 bg-white p-3">
+        <aside className="rounded-xl border border-neutral-200 bg-white p-3">
           <div className="space-y-1 border-b border-neutral-200 pb-3">
             <SmartButton active={smartView === "expiring"} label="Expiring Soon" onClick={() => selectSmart("expiring")} />
             <SmartButton active={smartView === "added"} label="Added This Week" onClick={() => selectSmart("added")} />
@@ -192,18 +192,18 @@ function DocumentsContent() {
           {userFolders.length > 0 ? <FolderGroup folders={userFolders} activeId={selectedFolderId} onSelect={selectFolder} /> : null}
         </aside>
 
-        <section className="rounded-lg border border-neutral-200 bg-white">
+        <section className="rounded-xl border border-neutral-200 bg-white">
           <div className="flex items-center justify-between border-b border-neutral-200 p-3">
             <p className="text-sm font-medium text-neutral-700">{documents.length} documents</p>
             <div className="rounded-lg border border-neutral-200 p-1">
-              <button aria-label="List view" className={cn("h-8 w-8 rounded-md", mode === "list" && "bg-blue-50 text-blue-600")} onClick={() => setMode("list")}><List className="mx-auto h-4 w-4" /></button>
-              <button aria-label="Grid view" className={cn("h-8 w-8 rounded-md", mode === "grid" && "bg-blue-50 text-blue-600")} onClick={() => setMode("grid")}><Grid2X2 className="mx-auto h-4 w-4" /></button>
+              <button aria-label="List view" className={cn("h-8 w-8 rounded-md", mode === "list" && "bg-brand-50 text-brand-600")} onClick={() => setMode("list")}><List className="mx-auto h-4 w-4" /></button>
+              <button aria-label="Grid view" className={cn("h-8 w-8 rounded-md", mode === "grid" && "bg-brand-50 text-brand-600")} onClick={() => setMode("grid")}><Grid2X2 className="mx-auto h-4 w-4" /></button>
             </div>
           </div>
           {documents.length === 0 ? (
             <div className="flex items-start gap-3 p-5 text-neutral-600">
               <FileText className="mt-1 h-5 w-5 text-neutral-400" />
-              <p>No documents in this view.</p>
+              <p className="font-display tracking-tight">No documents in this view.</p>
             </div>
           ) : mode === "list" ? (
             documents.map((document) => <DocumentRow key={document.id} document={document} selected={selected?.id === document.id} folders={folders} onSelect={() => setSelectedId(document.id)} onReload={async () => { await loadFolders(); await loadDocuments(); }} />)
@@ -239,7 +239,7 @@ function FolderGroup({ folders, activeId, onSelect, system = false }: { folders:
   return (
     <div className="mt-3 space-y-1">
       {folders.map((folder) => (
-        <button key={folder.id} className={cn("flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-neutral-100", activeId === folder.id && "bg-blue-50 text-blue-600")} onClick={() => onSelect(folder.id)}>
+        <button key={folder.id} className={cn("flex h-9 w-full items-center gap-2 rounded-md px-2 text-left text-sm hover:bg-neutral-100", activeId === folder.id && "bg-brand-50 text-brand-600")} onClick={() => onSelect(folder.id)}>
           {system ? <Lock className="h-4 w-4" /> : <FolderIcon className="h-4 w-4" />}
           <span className="min-w-0 flex-1 truncate">{folder.name}</span>
           <span className="text-xs text-neutral-400">{folder.item_count}</span>
@@ -250,13 +250,13 @@ function FolderGroup({ folders, activeId, onSelect, system = false }: { folders:
 }
 
 function SmartButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
-  return <button className={cn("flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm hover:bg-neutral-100", active && "bg-blue-50 text-blue-600")} onClick={onClick}><Filter className="h-4 w-4" />{label}</button>;
+  return <button className={cn("flex h-9 w-full items-center gap-2 rounded-md px-2 text-sm hover:bg-neutral-100", active && "bg-brand-50 text-brand-600")} onClick={onClick}><Filter className="h-4 w-4" />{label}</button>;
 }
 
 function DocumentRow({ document, selected, folders, onSelect, onReload }: { document: HydratedDocument; selected: boolean; folders: Folder[]; onSelect: () => void; onReload: () => Promise<void> }) {
   const expiring = isExpiring(document.expires_at);
   return (
-    <div className={cn("grid cursor-pointer grid-cols-[32px_minmax(180px,1fr)_140px_140px_110px_130px_40px] items-center gap-3 border-b border-neutral-100 px-3 py-3 text-sm hover:bg-neutral-50", selected && "bg-blue-50")} onClick={onSelect}>
+    <div className={cn("grid cursor-pointer grid-cols-[32px_minmax(180px,1fr)_140px_140px_110px_130px_40px] items-center gap-3 border-b border-neutral-100 px-3 py-3 text-sm hover:bg-neutral-50", selected && "bg-brand-50")} onClick={onSelect}>
       <FileText className="h-5 w-5 text-neutral-500" />
       <div className="min-w-0">
         <p className="truncate font-semibold text-neutral-900">{document.title}</p>
@@ -269,15 +269,15 @@ function DocumentRow({ document, selected, folders, onSelect, onReload }: { docu
       </div>
       <Badge variant="neutral">{labelize(document.document_type ?? "other")}</Badge>
       <span className="text-neutral-600">{document.folder?.name ?? "No folder"}</span>
-      <span className="text-neutral-500">{formatShortDate(document.created_at.slice(0, 10))}</span>
-      <span className={cn(expiring && "font-semibold text-yellow-600")}>{document.expires_at ? formatShortDate(document.expires_at) : "No expiry"}</span>
+      <span className="font-mono text-neutral-500">{formatShortDate(document.created_at.slice(0, 10))}</span>
+      <span className={cn("font-mono", expiring && "font-semibold text-yellow-600")}>{document.expires_at ? formatShortDate(document.expires_at) : "No expiry"}</span>
       <ActionSelect document={document} folders={folders} onReload={onReload} />
     </div>
   );
 }
 
 function DocumentCard({ document, selected, onSelect }: { document: HydratedDocument; selected: boolean; onSelect: () => void }) {
-  return <button className={cn("rounded-lg border border-neutral-200 p-4 text-left hover:bg-neutral-50", selected && "border-blue-600 bg-blue-50")} onClick={onSelect}><FileText className="h-6 w-6 text-neutral-500" /><p className="mt-3 font-semibold text-neutral-900">{document.title}</p><p className="mt-1 text-sm text-neutral-500">{document.folder?.name ?? "No folder"}</p></button>;
+  return <button className={cn("rounded-xl border border-neutral-200 p-4 text-left transition-shadow hover:border-neutral-300 hover:shadow-lift", selected && "border-brand-600 bg-brand-50 hover:border-brand-600")} onClick={onSelect}><FileText className="h-6 w-6 text-neutral-500" /><p className="mt-3 font-semibold text-neutral-900">{document.title}</p><p className="mt-1 text-sm text-neutral-500">{document.folder?.name ?? "No folder"}</p></button>;
 }
 
 function DocumentDetail({ document, folders, currentUserId, personName, canApply, onReload }: { document: HydratedDocument | null; folders: Folder[]; currentUserId: string; personName: string; canApply: boolean; onReload: () => Promise<void> }) {
@@ -320,7 +320,7 @@ function DocumentDetail({ document, folders, currentUserId, personName, canApply
     await onReload();
   };
   return (
-    <aside className="h-fit rounded-lg border border-neutral-200 bg-white p-4">
+    <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <h2 className="text-md font-semibold text-neutral-900">{document.title}</h2>
         <ProcessingBadge document={document} />
@@ -332,7 +332,7 @@ function DocumentDetail({ document, folders, currentUserId, personName, canApply
             // eslint-disable-next-line @next/next/no-img-element
             <img src={fileUrl} alt={document.title} className="max-h-56 w-full object-contain" />
           ) : (
-            <a className="text-sm font-medium text-blue-600" href={fileUrl} target="_blank" rel="noreferrer">
+            <a className="text-sm font-medium text-brand-600" href={fileUrl} target="_blank" rel="noreferrer">
               Open in new tab
             </a>
           )
@@ -344,7 +344,7 @@ function DocumentDetail({ document, folders, currentUserId, personName, canApply
         <Meta label="Type" value={labelize(document.document_type ?? "other")} />
         <Meta label="Folder" value={document.folder?.name ?? "No folder"} />
         <Meta label="Uploaded by" value={document.uploader?.display_name ?? "Unknown"} />
-        <Meta label="Uploaded" value={formatShortDate(document.created_at.slice(0, 10))} />
+        <div className="grid grid-cols-[96px_1fr] gap-2"><dt className="text-neutral-500">Uploaded</dt><dd className="font-mono font-medium text-neutral-800">{formatShortDate(document.created_at.slice(0, 10))}</dd></div>
         <Meta label="Source" value={document.source_name ?? "Not set"} />
       </dl>
       <Field label="Notes about this document">
@@ -404,7 +404,7 @@ function DocumentModal({ careCircleId, personId, folders, defaultFolderId, onClo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Add Document</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2"><Field label="File"><Input type="file" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); if (selected && !title) setTitle(selected.name.replace(/\.[^.]+$/, "")); }} /></Field></div>

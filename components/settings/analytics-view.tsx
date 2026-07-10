@@ -94,7 +94,7 @@ export function AnalyticsView() {
       <SettingsNav />
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold text-neutral-900">Analytics</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Analytics</h1>
           <p className="text-sm text-neutral-500">Workload and accountability for this care circle.</p>
         </div>
         {canView ? (

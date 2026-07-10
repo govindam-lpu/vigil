@@ -12,11 +12,27 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { roleLabel } from "@/lib/permissions/roles";
-import { formatPersonName } from "@/lib/utils";
+import { cn, formatPersonName, getInitials } from "@/lib/utils";
 import type { WorkspaceSummary } from "@/lib/types";
 import { useActiveCircle } from "./active-circle-provider";
 
 type CircleMetric = { openTaskCount: number; unreadCount: number };
+
+// The evergreen coin: the Person is the anchor of everything in Vigil, so the
+// switcher leads with their mark.
+function PersonCoin({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-brand-600 text-[11px] font-semibold text-white"
+    >
+      {getInitials(name)}
+    </span>
+  );
+}
+
+const pillClasses =
+  "inline-flex h-9 min-w-0 items-center gap-2 rounded-full border border-neutral-200 bg-white py-1 pl-1 pr-3 text-sm font-medium text-neutral-900";
 
 export function PersonSwitcher() {
   const router = useRouter();
@@ -58,17 +74,24 @@ export function PersonSwitcher() {
 
   if (!hasMultiple) {
     return (
-      <div className="inline-flex h-9 items-center rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700">
-        {activeName}
+      <div className={pillClasses}>
+        <PersonCoin name={activeName} />
+        <span className="truncate">{activeName}</span>
       </div>
     );
   }
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-9 items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-        {activeName}
-        <ChevronDown className="h-4 w-4 text-neutral-500" aria-hidden="true" />
+      <DropdownMenuTrigger
+        className={cn(
+          pillClasses,
+          "transition-colors hover:border-neutral-300 hover:bg-neutral-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
+        )}
+      >
+        <PersonCoin name={activeName} />
+        <span className="truncate">{activeName}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-neutral-500" aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-80 w-80 overflow-y-auto">
         {circles.map((circle) => {
@@ -92,7 +115,7 @@ export function PersonSwitcher() {
                 <Badge variant="primary">{roleLabel(circle.membership.role)}</Badge>
               </div>
               {metric ? (
-                <div className="flex items-center gap-3 text-xs text-neutral-400">
+                <div className="flex items-center gap-3 font-mono text-xs text-neutral-400">
                   <span>
                     {metric.openTaskCount} open {metric.openTaskCount === 1 ? "task" : "tasks"}
                   </span>
@@ -109,7 +132,7 @@ export function PersonSwitcher() {
           <LayoutGrid className="h-4 w-4" aria-hidden="true" />
           All care circles
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => router.push("/onboarding")} className="text-blue-600">
+        <DropdownMenuItem onSelect={() => router.push("/onboarding")} className="text-brand-600">
           <Plus className="h-4 w-4" aria-hidden="true" />
           New Care Circle
         </DropdownMenuItem>

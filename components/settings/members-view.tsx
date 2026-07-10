@@ -65,7 +65,7 @@ export function MembersView() {
     <div className="mx-auto max-w-[1280px] p-6">
       <SettingsNav />
       <div className="mt-4">
-        <h1 className="text-lg font-semibold text-neutral-900">Members</h1>
+        <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Members</h1>
         <p className="text-sm text-neutral-500">Roles and granular permission overrides for this care circle.</p>
       </div>
 
@@ -244,7 +244,7 @@ function PermissionsPanel({
                           </span>
                           <input
                             type="checkbox"
-                            className="h-4 w-4 accent-blue-600 disabled:opacity-40"
+                            className="h-4 w-4 accent-brand-600 disabled:opacity-40"
                             checked={isEffective}
                             disabled={locked || savingCapability === capability}
                             onChange={(event) => void toggle(capability, event.target.checked)}
