@@ -1,10 +1,48 @@
 # Vigil — Deployment Runbook
 
-> **Status (2026-07-08): NOTHING is deployed. Hosting/go-live is intentionally DEFERRED until
-> after all phases (4, 5) are built** — to batch paid infra + DNS + secret rotation and avoid
-> re-deploy churn as Phase 5 adds a job runner + notification providers + OAuth integrations.
-> The app runs locally (`npm run dev`) against the **remote** Supabase project. This file is the
-> running checklist so the final go-live is turnkey — **append each phase's deploy needs here.**
+> **Status (2026-07-11): GO-LIVE IS ACTIVE. Nothing is deployed yet; deploying is the current job.**
+> All phases + hardening + the redesign are merged to `main`; all migrations are applied through
+> `202607080010`. See the **Free launch plan** immediately below — it is the chosen path and overrides
+> the older "recommended hosts" (Railway / Vercel Pro) further down.
+
+## Free launch plan (2026-07-11) — the chosen path
+
+User constraint: **free tier only, always-on** (no self-host — the laptop can't stay on; no budget until scale).
+
+| Piece | Free host | Notes |
+|---|---|---|
+| **Web app** (Next.js) | **Vercel Hobby (free)** | Always-on. Hobby is *non-commercial* per Vercel ToS → upgrade to Pro when monetized. The ~10 s function cap is a non-issue at launch because the only >10 s path (voice) is deferred. |
+| **DB / auth / storage** | **Supabase** (already live, free) | Migrations applied through `202607080010` — **verify, don't re-apply.** pg_cron already runs the reminder + lifecycle jobs. |
+| **Email delivery** | **Resend free** (100/day, 3k/mo) | Via the `deliver-notifications` **Supabase Edge Function** (free) + a pg_cron→pg_net trigger (~1 min). Needs a Resend account + a verified sender (or `onboarding@resend.dev` for first tests). |
+| **Google Calendar import** | **free** Google Cloud OAuth client | `calendar.readonly` scope + `GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI`. `.ics` import already works with no config. |
+| **Notification / lifecycle crons** | **pg_cron** in Supabase (free) | Already scheduled by the migrations; runs in the live DB. |
+
+**Deferred to a later "OCR + voice" pass** (free path = **Hugging Face Spaces**, free CPU basic ≈ 16 GB RAM,
+fits Whisper): the **`worker/` OCR** service and the **`transcription/` voice** service. **At launch leave
+`WORKER_URL` unset** (documents still upload + are viewable; no text-extraction / AI-suggestions) **and
+`NEXT_PUBLIC_TRANSCRIPTION_ENABLED` unset** (voice-note button hidden). Both degrade gracefully. **FCM web-push
+and the Next 16 upgrade are also deferred** (not selected for launch; Next 16 is a recommended fast-follow —
+the `npm audit` highs are DoS/cache advisories, low practical risk for a small family app).
+
+**Order of operations (free launch):**
+1. **User rotates `SUPABASE_SERVICE_ROLE_KEY`** (Supabase → Settings → API → reset `service_role`) — it was
+   pasted in chat. New value goes **only** into the Edge Function secrets; the web app never needs it.
+2. Verify migrations: `npx supabase migration list --db-url "<SESSION_POOLER from .env.local>"` == local through 10.
+3. **User** creates the Vercel, Resend, and Google Cloud accounts and authenticates the `vercel` + `supabase` CLIs.
+4. Deploy the **web app** to Vercel Hobby (env matrix below, minus `WORKER_URL` + transcription vars).
+5. Register the **Google OAuth client**; add the 3 `GOOGLE_*` web env vars; set the redirect URI to `<web-origin>/api/integrations/calendar/google/callback`.
+6. Deploy the **`deliver-notifications` Edge Function** with its secrets; schedule it via pg_cron→pg_net.
+7. Verify live: sign in on the deployed origin; create a task assigned to a 2nd member → email arrives; import a `.ics`; connect Google Calendar; confirm in-app notifications + crisis flow.
+
+**Role boundary (safety):** the agent CANNOT create accounts, type secrets/API keys into dashboards, or buy
+infra — those are the user's actions. The agent prepares configs, the Edge Function, env templates, and the
+pg_cron SQL; deploys via the user-authenticated CLIs; and verifies. Secrets never pass through the agent.
+
+---
+
+*(The sections below are the original full runbook — still accurate for the 3-service architecture, env-var
+matrix, and the deferred worker/transcription services when you add them. The "recommended hosts" there are
+superseded by the free plan above.)*
 
 Merging each phase's PR into `main` is code consolidation, **not** a deploy — keep doing it.
 

@@ -415,15 +415,39 @@ rules held (server-side authz, soft-delete, audit, RLS all untouched). Source of
   `mobile-nav.tsx`. Login/onboarding rebuilt as a night/daylight "threshold" split. Timeline has a real
   spine. `analytics-charts.tsx` Recharts palette moved to evergreen+stone.
 - **Verified:** typecheck / lint / build / typecheck:worker all green; live browser check on desktop (1440)
-  and mobile (375) — login threshold, dashboard, timeline spine, mobile bottom nav + More sheet. No test
-  data created. See `REDESIGN_REPORT.md` for the full file-by-file record.
-- **Not done here:** not merged to `main`, no PR opened. Deploy tasks still pending (below).
+  and mobile (375) against a **seeded demo circle** (Chen Family Care) — dense tasks/medications/timeline/
+  calendar/people/analytics all confirmed on-token. QA caught + fixed one real bug: timeline system-entry
+  de-emphasis (`isSystem` only matched `system`/`member_joined`; now everything but `user_entry`). See
+  `REDESIGN_REPORT.md`.
+- **Merged to `main`** via PR #9 (`4410d8b`), 2026-07-11. **A demo circle "Chen Family Care" is still seeded
+  on the test account** — tear it down when convenient.
 
-## What Is Left Next
+## NEXT SESSION — GO-LIVE / DEPLOYMENT (the job now)
 
-**All six phases (0–5) are COMPLETE and merged to `main`; the `redesign` branch (above) is built + green but
-not yet merged.** No more feature phases. The prior hardening brief is in
-**`NEXT_SESSION_HANDOFF.md`**. Highlights:
+**All six phases + hardening + the redesign are merged to `main`. Vigil has NEVER been deployed — deploying is
+the next session's whole job.** Source of truth is **`DEPLOYMENT.md`** (the "Free launch plan" section). User
+constraint: **free tier only, always-on** (no self-host — laptop can't stay on; no budget until scale).
+
+**Decided free-launch shape (2026-07-11):**
+- **Web app → Vercel Hobby (free).** Non-commercial per ToS (upgrade to Pro when monetized); the ~10 s function
+  cap doesn't bite because the only >10 s path (voice) is deferred.
+- **DB/auth/storage → Supabase** — already live; **all migrations applied through `202607080010`** (verify with
+  `npx supabase migration list --db-url "<SESSION_POOLER>"`, do NOT re-apply).
+- **Email → Resend free** via the `deliver-notifications` **Supabase Edge Function** + a pg_cron→pg_net trigger.
+- **Google Calendar import → free** Google Cloud OAuth client (`calendar.readonly`). `.ics` needs no config.
+- **Rotate `SUPABASE_SERVICE_ROLE_KEY` FIRST** (pasted in chat) → new value ONLY in the Edge Function secrets.
+- **Deferred (free path later = Hugging Face Spaces, 16 GB free RAM): `worker/` OCR + `transcription/` voice.**
+  Launch with `WORKER_URL` + `NEXT_PUBLIC_TRANSCRIPTION_ENABLED` unset — docs still upload/view, voice button
+  hidden, both degrade gracefully. **FCM web-push + Next 16 upgrade also deferred** (not selected).
+
+**Role boundary (safety rules):** the agent CANNOT create accounts, enter secrets/API keys into hosting
+dashboards, or buy infra — those are the **user's** actions. The agent prepares configs/env templates/the Edge
+Function/the pg_cron SQL/verification, deploys via CLIs the **user** has authenticated (`vercel`, `supabase`),
+and verifies live. Secrets never pass through the agent.
+
+## Older brief (superseded, kept for reference)
+
+The prior hardening + redesign brief is in **`NEXT_SESSION_HANDOFF.md`**. Highlights:
 - **Security audit** of the whole app (authorization/RLS cross-circle + capability-override enforcement,
   private-notes + household access-notes isolation, auth/401, XSS + `.ics` parser, secrets/crypto incl. the
   Google OAuth `state` CSRF gap, `npm audit`). Test via API **and** direct PostgREST under a user JWT.
