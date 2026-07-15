@@ -115,7 +115,10 @@ Deno.serve(async (request: Request) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  // Prefer the new sb_secret_ key (set as the SERVICE_ROLE_KEY function secret) so delivery keeps
+  // working after the legacy service_role key is disabled; fall back to the auto-injected legacy key
+  // while both still exist.
+  const serviceKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ error: "Missing Supabase env" }), { status: 500 });
   }
