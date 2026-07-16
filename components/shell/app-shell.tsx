@@ -1,5 +1,6 @@
 import type { CircleSummary, UserProfile } from "@/lib/types";
 import { QueryProvider } from "@/components/providers/query-provider";
+import { WelcomeTour } from "@/components/onboarding/welcome-tour";
 import { ActiveCircleProvider } from "./active-circle-provider";
 import { ShellBanners } from "./crisis-banner";
 import { CrisisModeProvider } from "./crisis-mode-provider";
@@ -27,6 +28,7 @@ export function AppShell({ circles, profile, email, children }: AppShellProps) {
           <Sidebar />
           <MobileNav />
           <ShellMain>{children}</ShellMain>
+          <WelcomeTour userId={profile.id} />
         </CrisisModeProvider>
       </ActiveCircleProvider>
     </QueryProvider>

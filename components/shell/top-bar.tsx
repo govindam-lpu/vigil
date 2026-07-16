@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ActivateCrisisModal } from "@/components/crisis/activate-crisis-modal";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { requestTourReplay } from "@/components/onboarding/welcome-tour";
 import { Avatar } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -128,6 +129,7 @@ export function TopBar({ profile, email }: TopBarProps) {
                 <p className="text-sm text-neutral-500">{email}</p>
               </div>
               <DropdownMenuSeparator className="my-1 h-px bg-neutral-200" />
+              <DropdownMenuItem onSelect={requestTourReplay}>Take the tour</DropdownMenuItem>
               <DropdownMenuItem onSelect={signOut}>Sign out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
