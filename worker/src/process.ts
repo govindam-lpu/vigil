@@ -13,16 +13,19 @@ type DocumentRow = {
 
 async function setStatus(documentId: string, careCircleId: string, status: "processing" | "failed"): Promise<void> {
   const supabase = serviceClient();
-  await supabase
+  const { error } = await supabase
     .from("documents")
     .update({ processing_status: status })
     .eq("id", documentId)
     .eq("care_circle_id", careCircleId);
+  if (error) console.error(`[worker] setStatus(${status}) write failed for ${documentId}: ${error.message}`);
 }
 
 // OCR (§1) then structured extraction (§2), both writing back to the document row via the
 // service role. Extraction is best-effort — a provider error never fails the OCR result.
+// Steps are logged (to Cloud Run) so a stuck "pending"/"failed" doc is diagnosable.
 export async function processDocument(documentId: string, careCircleId: string): Promise<void> {
+  console.log(`[worker] processDocument start ${documentId} (circle ${careCircleId})`);
   const supabase = serviceClient();
   await setStatus(documentId, careCircleId, "processing");
 
@@ -35,6 +38,9 @@ export async function processDocument(documentId: string, careCircleId: string):
 
   const document = (data as DocumentRow | null) ?? null;
   if (error || !document || !document.storage_path) {
+    console.error(
+      `[worker] load failed ${documentId}: error=${error?.message ?? "none"} hasDoc=${!!document} storagePath=${document?.storage_path ?? "null"}`
+    );
     await setStatus(documentId, careCircleId, "failed");
     return;
   }
@@ -42,7 +48,7 @@ export async function processDocument(documentId: string, careCircleId: string):
   try {
     const download = await supabase.storage.from("documents").download(document.storage_path);
     if (download.error || !download.data) {
-      throw new Error("Failed to download document from storage");
+      throw new Error(`storage download failed: ${download.error?.message ?? "no data"}`);
     }
     const buffer = Buffer.from(await download.data.arrayBuffer());
 
@@ -54,11 +60,13 @@ export async function processDocument(documentId: string, careCircleId: string):
     }
     text = text.trim();
 
-    await supabase
+    const { error: indexError } = await supabase
       .from("documents")
       .update({ extracted_text: text.length > 0 ? text : null, processing_status: "indexed" })
       .eq("id", documentId)
       .eq("care_circle_id", careCircleId);
+    if (indexError) throw new Error(`indexed write failed: ${indexError.message}`);
+    console.log(`[worker] processDocument indexed ${documentId} (${text.length} chars extracted)`);
 
     if (text.length > 0) {
       const suggestions = await runExtraction(careCircleId, text);
@@ -70,7 +78,8 @@ export async function processDocument(documentId: string, careCircleId: string):
           .eq("care_circle_id", careCircleId);
       }
     }
-  } catch {
+  } catch (err) {
+    console.error(`[worker] processDocument failed ${documentId}: ${err instanceof Error ? err.message : String(err)}`);
     await setStatus(documentId, careCircleId, "failed");
   }
 }
