@@ -320,7 +320,7 @@ function MedicationSuggestion({
   return (
     <div className="rounded-md bg-white p-2">
       <p className="mb-1 text-xs text-neutral-500">Review before adding:</p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Input className="h-9" placeholder="Name" value={name} onChange={(event) => setName(event.target.value)} />
         <Input className="h-9" placeholder="Dosage" value={dosage} onChange={(event) => setDosage(event.target.value)} />
         <Input

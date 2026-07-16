@@ -1,8 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
-import { MapPin, Plus, Star, UserCog } from "lucide-react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { MapPin, Phone, Plus, Star, UserCog } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,9 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ConflictModal } from "@/components/ui/conflict-modal";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import { roleLabel } from "@/lib/permissions/roles";
 import type {
   Contact,
@@ -70,64 +73,69 @@ const PERSON_FIELDS: PersonFieldDef[] = [
 
 export function PeopleView() {
   const { activeCircle } = useActiveCircle();
-  const [members, setMembers] = useState<MemberSummary[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [households, setHouseholds] = useState<HydratedHousehold[]>([]);
-  const [person, setPerson] = useState<Person | null>(activeCircle?.person ?? null);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const role = activeCircle?.membership.role;
   const canEditProfile = role === "owner" || role === "coordinator";
   const canWriteContacts = role === "owner" || role === "coordinator" || role === "contributor";
 
-  const load = async (isCancelled?: () => boolean) => {
-    if (!activeCircle?.person) return;
-    try {
-      setError(null);
-      const [memberResponse, contactResponse, personResponse, householdResponse] = await Promise.all([
-        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
-        fetch(`/api/contacts?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-        fetch(`/api/persons?careCircleId=${activeCircle.careCircle.id}`),
-        fetch(`/api/households?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
-      ]);
-      if (!memberResponse.ok || !contactResponse.ok || !personResponse.ok || !householdResponse.ok)
-        throw new Error("Request failed");
-      const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
-      const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
-      const personJson = (await personResponse.json()) as { person?: Person | null };
-      const householdJson = (await householdResponse.json()) as { households?: HydratedHousehold[] };
-      if (isCancelled?.()) return;
-      setMembers(memberJson.members ?? []);
-      setContacts(contactJson.contacts ?? []);
-      setHouseholds(householdJson.households ?? []);
-      if (personJson.person) setPerson(personJson.person);
-    } catch {
-      if (isCancelled?.()) return;
-      setError("We couldn't load this care circle. Check your connection and try again.");
-    }
+  const careCircleId = activeCircle?.careCircle.id ?? null;
+  const personId = activeCircle?.person?.id ?? null;
+
+  const membersQuery = useQuery({
+    queryKey: ["members", careCircleId],
+    queryFn: () => fetchJson<{ members?: MemberSummary[] }>(`/api/memberships?careCircleId=${careCircleId}`),
+    enabled: Boolean(careCircleId),
+    staleTime: 5 * 60_000
+  });
+  const contactsQuery = useQuery({
+    queryKey: ["contacts", careCircleId, personId],
+    queryFn: () => fetchJson<{ contacts?: Contact[] }>(`/api/contacts?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId),
+    staleTime: 5 * 60_000
+  });
+  const personQuery = useQuery({
+    queryKey: ["person", careCircleId],
+    queryFn: () => fetchJson<{ person?: Person | null }>(`/api/persons?careCircleId=${careCircleId}`),
+    enabled: Boolean(careCircleId)
+  });
+  const householdsQuery = useQuery({
+    queryKey: ["households", careCircleId, personId],
+    queryFn: () => fetchJson<{ households?: HydratedHousehold[] }>(`/api/households?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId)
+  });
+
+  const members = membersQuery.data?.members ?? [];
+  const contacts = contactsQuery.data?.contacts ?? [];
+  const households = householdsQuery.data?.households ?? [];
+  const person = personQuery.data?.person ?? activeCircle?.person ?? null;
+  const anyError = membersQuery.isError || contactsQuery.isError || personQuery.isError || householdsQuery.isError;
+
+  const load = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["members", careCircleId] }),
+      queryClient.invalidateQueries({ queryKey: ["contacts", careCircleId, personId] }),
+      queryClient.invalidateQueries({ queryKey: ["person", careCircleId] }),
+      queryClient.invalidateQueries({ queryKey: ["households", careCircleId, personId] })
+    ]);
   };
 
-  useEffect(() => {
-    let cancelled = false;
-    void load(() => cancelled);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
+  const setPerson = (next: Person) => {
+    queryClient.setQueryData(["person", careCircleId], { person: next });
+  };
 
   if (!activeCircle?.person) return null;
 
   return (
-    <div className="mx-auto max-w-[1280px] p-6">
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6">
       <div className="sticky top-14 z-20 -mx-2 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
         <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">People &amp; Roles</h1>
-        <p className="text-sm text-neutral-500">Members of this care circle, the person&apos;s profile, and the care team.</p>
+        <p className="hidden text-sm text-neutral-500 sm:block">Members of this care circle, the person&apos;s profile, and the care team.</p>
       </div>
 
-      {error ? (
+      {anyError ? (
         <div className="mt-5">
-          <LoadError message={error} onRetry={() => void load()} />
+          <LoadError message="We couldn't load this care circle. Check your connection and try again." onRetry={() => void load()} />
         </div>
       ) : null}
 
@@ -141,11 +149,12 @@ export function PeopleView() {
             onReload={load}
           />
         ) : null}
-        <MembersSection members={members} />
+        <MembersSection members={members} loading={membersQuery.isPending} />
       </div>
 
       <ContactsSection
         contacts={contacts}
+        loading={contactsQuery.isPending}
         careCircleId={activeCircle.careCircle.id}
         personId={activeCircle.person.id}
         canWrite={canWriteContacts}
@@ -154,6 +163,7 @@ export function PeopleView() {
 
       <HouseholdsSection
         households={households}
+        loading={householdsQuery.isPending}
         contacts={contacts}
         careCircleId={activeCircle.careCircle.id}
         personId={activeCircle.person.id}
@@ -280,10 +290,11 @@ function ProfileField({ def, person, canEdit, onSave }: { def: PersonFieldDef; p
   );
 }
 
-function MembersSection({ members }: { members: MemberSummary[] }) {
+function MembersSection({ members, loading }: { members: MemberSummary[]; loading: boolean }) {
   return (
     <Card>
       <h2 className="text-md font-semibold text-neutral-900">Members</h2>
+      {loading ? <SkeletonRows rows={3} className="mt-3 [&>div]:h-10" /> : null}
       <div className="mt-3 space-y-3">
         {members.map((member) => (
           <div key={member.membership.id} className="flex items-center gap-3">
@@ -310,12 +321,14 @@ function MembersSection({ members }: { members: MemberSummary[] }) {
 
 function ContactsSection({
   contacts,
+  loading,
   careCircleId,
   personId,
   canWrite,
   onReload
 }: {
   contacts: Contact[];
+  loading: boolean;
   careCircleId: string;
   personId: string;
   canWrite: boolean;
@@ -347,10 +360,58 @@ function ContactsSection({
         ) : null}
       </div>
 
-      {contacts.length === 0 ? (
+      {loading ? (
+        <SkeletonRows rows={3} className="p-4" />
+      ) : contacts.length === 0 ? (
         <p className="p-4 font-display text-sm tracking-tight text-neutral-600">No contacts yet. Add doctors, pharmacies, and other care-team members.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+          {/* Phones: card list with tap-to-call — a 720px table forced sideways scrolling. */}
+          <div className="divide-y divide-neutral-100 sm:hidden">
+            {contacts.map((contact) => (
+              <div key={contact.id} className="flex items-start gap-3 p-4">
+                <div className="min-w-0 flex-1">
+                  <p className="flex items-center gap-1.5 font-medium text-neutral-900">
+                    <span className="min-w-0 truncate">{contact.name}</span>
+                    {contact.is_emergency_contact ? (
+                      <Star className="h-4 w-4 shrink-0 fill-red-500 text-red-500" aria-label="Emergency contact" />
+                    ) : null}
+                  </p>
+                  <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
+                    {contact.role ? <Badge variant="neutral">{labelize(contact.role)}</Badge> : null}
+                    {contact.organization ? <span className="min-w-0 truncate">{contact.organization}</span> : null}
+                  </p>
+                  {contact.phone ? (
+                    <a href={`tel:${contact.phone}`} className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-sm font-medium text-brand-600">
+                      <Phone className="h-3.5 w-3.5" aria-hidden="true" />
+                      {contact.phone}
+                    </a>
+                  ) : null}
+                  {contact.email ? <p className="mt-0.5 break-all font-mono text-xs text-neutral-500">{contact.email}</p> : null}
+                </div>
+                {canWrite ? (
+                  <select
+                    aria-label="Contact actions"
+                    className="h-8 shrink-0 rounded-md border border-neutral-200 bg-white px-2 text-neutral-500"
+                    value=""
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "edit") setModalContact(contact);
+                      if (value === "delete") void update(contact, { archive: true });
+                      if (value === "pin") void update(contact, { pinnedInCrisis: !contact.pinned_in_crisis });
+                      event.target.value = "";
+                    }}
+                  >
+                    <option value="">…</option>
+                    <option value="edit">Edit</option>
+                    <option value="pin">{contact.pinned_in_crisis ? "Unpin from Crisis" : "Pin to Crisis"}</option>
+                    <option value="delete">Delete</option>
+                  </select>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-neutral-200 text-left text-xs font-semibold text-neutral-500">
@@ -399,7 +460,8 @@ function ContactsSection({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {modalContact ? (
@@ -527,6 +589,7 @@ function ContactModal({
 
 function HouseholdsSection({
   households,
+  loading,
   contacts,
   careCircleId,
   personId,
@@ -535,6 +598,7 @@ function HouseholdsSection({
   onReload
 }: {
   households: HydratedHousehold[];
+  loading: boolean;
   contacts: Contact[];
   careCircleId: string;
   personId: string;
@@ -568,7 +632,9 @@ function HouseholdsSection({
         ) : null}
       </div>
 
-      {households.length === 0 ? (
+      {loading ? (
+        <SkeletonRows rows={2} className="p-4" />
+      ) : households.length === 0 ? (
         <p className="p-4 font-display text-sm tracking-tight text-neutral-600">
           No locations yet. Add a home or facility with its address and access notes.
         </p>

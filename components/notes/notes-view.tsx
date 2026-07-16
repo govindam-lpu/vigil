@@ -1,55 +1,49 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Lock, Mic, Plus, Sparkles, StickyNote, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { ConflictModal } from "@/components/ui/conflict-modal";
 import { VoiceRecorder } from "@/components/notes/voice-recorder";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import type { HydratedNote, Note } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
 const TRANSCRIPTION_ENABLED = process.env.NEXT_PUBLIC_TRANSCRIPTION_ENABLED === "true";
 
+type NotesPayload = { notes?: HydratedNote[]; currentUserId?: string; currentRole?: string };
+
 export function NotesView() {
   const { activeCircle } = useActiveCircle();
-  const [notes, setNotes] = useState<HydratedNote[]>([]);
-  const [currentUserId, setCurrentUserId] = useState("");
-  const [currentRole, setCurrentRole] = useState("");
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [taskSuggest, setTaskSuggest] = useState<{ noteId: string; suggestions: string[] } | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
 
-  const load = async (isCancelled?: () => boolean) => {
-    if (!activeCircle?.person) return;
-    try {
-      setError(null);
-      const response = await fetch(`/api/notes?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`);
-      if (!response.ok) throw new Error("Request failed");
-      const json = (await response.json()) as { notes?: HydratedNote[]; currentUserId?: string; currentRole?: string };
-      if (isCancelled?.()) return;
-      setNotes(json.notes ?? []);
-      setCurrentUserId(json.currentUserId ?? "");
-      setCurrentRole(json.currentRole ?? "");
-    } catch {
-      if (isCancelled?.()) return;
-      setError("We couldn't load notes. Check your connection and try again.");
-    }
-  };
+  const careCircleId = activeCircle?.careCircle.id ?? null;
+  const personId = activeCircle?.person?.id ?? null;
 
-  useEffect(() => {
-    let cancelled = false;
-    void load(() => cancelled);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
+  const notesQuery = useQuery({
+    queryKey: ["notes", careCircleId, personId],
+    queryFn: () => fetchJson<NotesPayload>(`/api/notes?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId)
+  });
+
+  const notes = notesQuery.data?.notes ?? [];
+  const currentUserId = notesQuery.data?.currentUserId ?? "";
+  const currentRole = notesQuery.data?.currentRole ?? "";
+  const loading = notesQuery.isPending;
+
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["notes", careCircleId, personId] });
+  };
 
   // §5: after a note is saved, ask the server for implied tasks; show a non-blocking toast.
   const fetchTaskSuggestions = async (noteId: string) => {
@@ -79,26 +73,31 @@ export function NotesView() {
   if (!activeCircle?.person) return null;
 
   return (
-    <div className="mx-auto max-w-[960px] p-6">
-      <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
-        <div>
+    <div className="mx-auto max-w-[960px] p-4 sm:p-6">
+      <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between gap-3 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
+        <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Notes</h1>
-          <p className="text-sm text-neutral-500">Capture shared context and private reminders.</p>
+          <p className="hidden text-sm text-neutral-500 sm:block">Capture shared context and private reminders.</p>
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button className="shrink-0" onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           Add Note
         </Button>
       </div>
 
-      {error ? (
+      {notesQuery.isError ? (
         <div className="mt-5">
-          <LoadError message={error} onRetry={() => void load()} />
+          <LoadError
+            message="We couldn't load notes. Check your connection and try again."
+            onRetry={() => void notesQuery.refetch()}
+          />
         </div>
       ) : null}
 
       <section className="mt-5 space-y-3">
-        {notes.length === 0 ? (
+        {loading ? (
+          <SkeletonRows rows={4} />
+        ) : notes.length === 0 ? (
           <Card className="flex items-start gap-3">
             <StickyNote className="mt-1 h-5 w-5 text-neutral-400" />
             <p className="font-display text-base tracking-tight text-neutral-600">No notes yet. Notes preserve context that does not fit into tasks or appointments.</p>
@@ -122,7 +121,7 @@ export function NotesView() {
       ) : null}
 
       {taskSuggest && !panelOpen ? (
-        <div className="fixed inset-x-0 bottom-6 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-lg">
+        <div className="fixed inset-x-4 bottom-24 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-lg lg:bottom-6">
           <Sparkles className="h-4 w-4 shrink-0 text-brand-600" aria-hidden="true" />
           <p className="flex-1 text-sm text-neutral-700">We noticed some possible tasks in your note.</p>
           <button className="text-sm font-semibold text-brand-600 hover:underline" onClick={() => setPanelOpen(true)}>
@@ -232,7 +231,7 @@ function NoteCard({ note, currentUserId, currentRole, onReload }: { note: Hydrat
         </div>
       ) : (
         <>
-          <p className={`mt-3 whitespace-pre-wrap text-base text-neutral-700 ${expanded ? "" : "line-clamp-3"}`}>{note.content}</p>
+          <p className={`mt-3 whitespace-pre-wrap break-words text-base text-neutral-700 ${expanded ? "" : "line-clamp-3"}`}>{note.content}</p>
           {note.content.length > 180 ? (
             <button className="mt-2 text-sm font-medium text-brand-600 hover:underline" onClick={() => setExpanded((value) => !value)}>
               {expanded ? "Show less" : "Show more"}
@@ -364,6 +363,7 @@ function SuggestedTaskRow({
   personId: string;
   noteId: string;
 }) {
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState(initialTitle);
   const [added, setAdded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -376,7 +376,10 @@ function SuggestedTaskRow({
       body: JSON.stringify({ careCircleId, personId, title: title.trim(), linkedObjectType: "note", linkedObjectId: noteId })
     });
     setBusy(false);
-    if (response.ok) setAdded(true);
+    if (response.ok) {
+      setAdded(true);
+      void queryClient.invalidateQueries({ queryKey: ["tasks", careCircleId] });
+    }
   };
 
   if (added) {

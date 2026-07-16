@@ -3,13 +3,17 @@
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pill, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DetailSheet } from "@/components/ui/detail-sheet";
 import { Input } from "@/components/ui/input";
 import { LoadError } from "@/components/ui/load-error";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import type {
   Contact,
   HydratedMedication,
@@ -63,54 +67,71 @@ const statusVariant: Record<MedicationStatus, "green" | "yellow" | "neutral"> = 
 
 export function MedicationsView() {
   return (
-    <Suspense fallback={<div className="p-6">Loading medications…</div>}>
+    <Suspense fallback={<MedicationsSkeleton />}>
       <MedicationsContent />
     </Suspense>
   );
 }
 
+function MedicationsSkeleton() {
+  return (
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6" aria-busy="true">
+      <div className="flex items-center justify-between border-b border-neutral-200 py-3">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-36" />
+          <Skeleton className="h-4 w-60" />
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+      <div className="mt-5">
+        <SkeletonRows rows={5} />
+      </div>
+    </div>
+  );
+}
+
 function MedicationsContent() {
   const { activeCircle } = useActiveCircle();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const medicationParam = searchParams.get("medication");
-  const [medications, setMedications] = useState<HydratedMedication[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [tab, setTab] = useState<MedTab>("active");
   const [selectedId, setSelectedId] = useState<string | null>(medicationParam);
+  const [detailOpen, setDetailOpen] = useState(Boolean(medicationParam));
   const [modalOpen, setModalOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const load = async (isCancelled?: () => boolean) => {
-    if (!activeCircle?.person) return;
-    try {
-      setError(null);
-      const [medResponse, contactResponse] = await Promise.all([
-        fetch(`/api/medications?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-        fetch(`/api/contacts?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
-      ]);
-      if (!medResponse.ok || !contactResponse.ok) throw new Error("Request failed");
-      const medJson = (await medResponse.json()) as { medications?: HydratedMedication[] };
-      const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
-      if (isCancelled?.()) return;
-      setMedications(medJson.medications ?? []);
-      setContacts(contactJson.contacts ?? []);
-    } catch {
-      if (isCancelled?.()) return;
-      setError("We couldn't load medications. Check your connection and try again.");
-    }
+  const careCircleId = activeCircle?.careCircle.id ?? null;
+  const personId = activeCircle?.person?.id ?? null;
+
+  const medicationsQuery = useQuery({
+    queryKey: ["medications", careCircleId, personId],
+    queryFn: () =>
+      fetchJson<{ medications?: HydratedMedication[] }>(`/api/medications?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId)
+  });
+  const contactsQuery = useQuery({
+    queryKey: ["contacts", careCircleId, personId],
+    queryFn: () => fetchJson<{ contacts?: Contact[] }>(`/api/contacts?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId),
+    staleTime: 5 * 60_000
+  });
+
+  const medications = useMemo(() => medicationsQuery.data?.medications ?? [], [medicationsQuery.data]);
+  const contacts = contactsQuery.data?.contacts ?? [];
+  const loading = medicationsQuery.isPending;
+
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["medications", careCircleId, personId] });
+  };
+  const reloadContacts = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["contacts", careCircleId, personId] });
   };
 
   useEffect(() => {
-    let cancelled = false;
-    void load(() => cancelled);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
-
-  useEffect(() => {
-    if (medicationParam) setSelectedId(medicationParam);
+    if (medicationParam) {
+      setSelectedId(medicationParam);
+      setDetailOpen(true);
+    }
   }, [medicationParam]);
 
   const counts = useMemo(
@@ -129,27 +150,35 @@ function MedicationsContent() {
   if (!activeCircle?.person) return null;
 
   return (
-    <div className="mx-auto max-w-[1280px] p-6">
-      <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
-        <div>
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6">
+      <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between gap-3 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
+        <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Medications</h1>
-          <p className="text-sm text-neutral-500">
-            {counts.active} active · {counts.refillsDue} refills due · {counts.discontinued} discontinued
-          </p>
+          {loading ? (
+            <Skeleton className="mt-1 h-4 w-48" />
+          ) : (
+            <p className="text-sm text-neutral-500">
+              {counts.active} active · {counts.refillsDue} refills due · {counts.discontinued} discontinued
+            </p>
+          )}
         </div>
-        <Button onClick={() => setModalOpen(true)}>
+        <Button className="shrink-0" onClick={() => setModalOpen(true)}>
           <Plus className="h-4 w-4" aria-hidden="true" />
-          Add Medication
+          <span className="hidden sm:inline">Add Medication</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
-      {error ? (
+      {medicationsQuery.isError ? (
         <div className="mt-5">
-          <LoadError message={error} onRetry={() => void load()} />
+          <LoadError
+            message="We couldn't load medications. Check your connection and try again."
+            onRetry={() => void medicationsQuery.refetch()}
+          />
         </div>
       ) : null}
 
-      <div className="mt-5 flex items-center gap-2">
+      <div className="mt-5 flex flex-wrap items-center gap-2">
         {(["active", "paused", "discontinued"] as MedTab[]).map((item) => (
           <button
             key={item}
@@ -159,36 +188,52 @@ function MedicationsContent() {
             )}
             onClick={() => setTab(item)}
           >
-            {item} ({counts[item]})
+            {loading ? item : `${item} (${counts[item]})`}
           </button>
         ))}
       </div>
 
       <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
         <section className="min-w-0 space-y-3">
-          {visible.length === 0 ? (
+          {loading ? (
+            <SkeletonRows rows={4} />
+          ) : visible.length === 0 ? (
             <Card className="flex items-start gap-3">
-              <Pill className="mt-1 h-5 w-5 text-neutral-400" aria-hidden="true" />
+              <Pill className="mt-1 h-5 w-5 shrink-0 text-neutral-400" aria-hidden="true" />
               <p className="text-base text-neutral-600">
                 <span className="font-display tracking-tight">No {tab} medications.</span> Medications track dosage, schedule, and refills so nothing is doubled up or missed.
               </p>
             </Card>
           ) : (
             visible.map((med) => (
-              <MedicationCard key={med.id} medication={med} selected={selected?.id === med.id} onSelect={() => setSelectedId(med.id)} />
+              <MedicationCard
+                key={med.id}
+                medication={med}
+                selected={selected?.id === med.id}
+                onSelect={() => {
+                  setSelectedId(med.id);
+                  setDetailOpen(true);
+                }}
+              />
             ))
           )}
         </section>
 
-        <MedicationDetail key={selected?.id ?? "none"} medication={selected} contacts={contacts} onReload={load} />
+        <aside className="hidden h-fit lg:block">
+          <MedicationDetailCard key={selected?.id ?? "none"} medication={selected} contacts={contacts} onReload={load} />
+        </aside>
       </div>
+
+      <DetailSheet open={detailOpen && Boolean(selected)} onClose={() => setDetailOpen(false)} title={selected ? displayName(selected) : "Medication"}>
+        <MedicationDetailBody key={selected?.id ?? "none"} medication={selected} contacts={contacts} onReload={load} />
+      </DetailSheet>
 
       {modalOpen ? (
         <MedicationModal
           careCircleId={activeCircle.careCircle.id}
           personId={activeCircle.person.id}
           contacts={contacts}
-          onContactsChanged={load}
+          onContactsChanged={reloadContacts}
           onClose={() => setModalOpen(false)}
           onSaved={async () => {
             setModalOpen(false);
@@ -223,26 +268,33 @@ function MedicationCard({ medication, selected, onSelect }: { medication: Hydrat
   );
 }
 
-function MedicationDetail({
-  medication,
-  contacts,
-  onReload
-}: {
+type MedicationDetailProps = {
   medication: HydratedMedication | null;
   contacts: Contact[];
   onReload: () => Promise<void>;
-}) {
-  const [statusAction, setStatusAction] = useState<"paused" | "discontinued" | null>(null);
-  const [statusNote, setStatusNote] = useState("");
-  const [logging, setLogging] = useState(false);
+};
 
-  if (!medication) {
+function MedicationDetailCard(props: MedicationDetailProps) {
+  if (!props.medication) {
     return (
-      <Card className="hidden h-fit lg:block">
+      <Card className="h-fit">
         <p className="text-sm text-neutral-500">Select a medication to view details.</p>
       </Card>
     );
   }
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <MedicationDetailBody {...props} />
+    </div>
+  );
+}
+
+function MedicationDetailBody({ medication, contacts, onReload }: MedicationDetailProps) {
+  const [statusAction, setStatusAction] = useState<"paused" | "discontinued" | null>(null);
+  const [statusNote, setStatusNote] = useState("");
+  const [logging, setLogging] = useState(false);
+
+  if (!medication) return null;
 
   const update = async (payload: Record<string, unknown>) => {
     await fetch("/api/medications", {
@@ -267,10 +319,10 @@ function MedicationDetail({
   const chip = refillChip(medication);
 
   return (
-    <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-4">
+    <div>
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <h2 className="text-md font-semibold text-neutral-900">{displayName(medication)}</h2>
+        <div className="min-w-0">
+          <h2 className="break-words text-md font-semibold text-neutral-900">{displayName(medication)}</h2>
           <div className="mt-1 flex items-center gap-2">
             <Badge variant={statusVariant[medication.status]}>{labelize(medication.status)}</Badge>
             {chip ? <Badge variant={chip.variant}>{chip.label}</Badge> : null}
@@ -378,11 +430,12 @@ function MedicationDetail({
         ) : null}
         <MedicationHistory medication={medication} />
       </div>
-    </aside>
+    </div>
   );
 }
 
 function AdministrationForm({ medication, onLogged }: { medication: HydratedMedication; onLogged: () => Promise<void> }) {
+  const queryClient = useQueryClient();
   const [administeredAt, setAdministeredAt] = useState(toDateTimeLocalValue(new Date().toISOString()));
   const [notes, setNotes] = useState("");
 
@@ -398,6 +451,7 @@ function AdministrationForm({ medication, onLogged }: { medication: HydratedMedi
         notes: notes || null
       })
     });
+    void queryClient.invalidateQueries({ queryKey: ["medication-history", medication.id] });
     await onLogged();
   };
 
@@ -417,29 +471,26 @@ function AdministrationForm({ medication, onLogged }: { medication: HydratedMedi
 }
 
 function MedicationHistory({ medication }: { medication: HydratedMedication }) {
-  const [events, setEvents] = useState<HydratedTimelineEvent[]>([]);
-  const [administrations, setAdministrations] = useState<HydratedMedicationAdministration[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const [timelineResponse, adminResponse] = await Promise.all([
-        fetch(
+  const historyQuery = useQuery({
+    queryKey: ["medication-history", medication.id],
+    queryFn: async () => {
+      const [timelineJson, adminJson] = await Promise.all([
+        fetchJson<{ events?: HydratedTimelineEvent[] }>(
           `/api/timeline?careCircleId=${medication.care_circle_id}&personId=${medication.person_id}&linkedObjectId=${medication.id}`
         ),
-        fetch(`/api/medications/administrations?careCircleId=${medication.care_circle_id}&medicationId=${medication.id}`)
+        fetchJson<{ administrations?: HydratedMedicationAdministration[] }>(
+          `/api/medications/administrations?careCircleId=${medication.care_circle_id}&medicationId=${medication.id}`
+        )
       ]);
-      const timelineJson = (await timelineResponse.json()) as { events?: HydratedTimelineEvent[] };
-      const adminJson = (await adminResponse.json()) as { administrations?: HydratedMedicationAdministration[] };
-      if (cancelled) return;
-      setEvents(timelineJson.events ?? []);
-      setAdministrations(adminJson.administrations ?? []);
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [medication.id, medication.care_circle_id, medication.person_id]);
+      return { events: timelineJson.events ?? [], administrations: adminJson.administrations ?? [] };
+    }
+  });
+  const events = historyQuery.data?.events ?? [];
+  const administrations = historyQuery.data?.administrations ?? [];
+
+  if (historyQuery.isPending) {
+    return <SkeletonRows rows={2} className="mt-3 [&>div]:h-10" />;
+  }
 
   if (events.length === 0 && administrations.length === 0) {
     return <p className="mt-3 font-display text-sm tracking-tight text-neutral-500">No history yet.</p>;
