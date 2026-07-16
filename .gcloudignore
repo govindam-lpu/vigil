@@ -1,10 +1,10 @@
-.next
+.git
+.gitignore
 node_modules
+.next
 .env
 .env.local
 .env.*.local
 *.tsbuildinfo
-__pycache__/
-*.pyc
+transcription
 .claude
-.vercel

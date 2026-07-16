@@ -21,13 +21,18 @@ Use this as the short-form memory for a new session.
 
 - **NEXT UP — GO-LIVE / DEPLOYMENT (2026-07-11).** Everything below is merged to `main`; the app has
   **never been deployed** and that is now the job. **Constraint: FREE tier only, always-on (no self-host).**
-  Plan: **Vercel Hobby** (web app) + **Supabase** (already live) + **Resend free** email via the
-  `deliver-notifications` **Edge Function** + **Google Calendar** OAuth (free). **Deferred (free path later =
-  Hugging Face Spaces): `worker/` OCR + `transcription/` voice** — launch with `WORKER_URL` +
-  `NEXT_PUBLIC_TRANSCRIPTION_ENABLED` unset (both degrade gracefully). FCM push + Next 16 upgrade deferred.
-  **Rotate `SUPABASE_SERVICE_ROLE_KEY` first.** Full runbook: `DEPLOYMENT.md` ("Free launch"). Migrations
-  already applied through `202607080010` — verify, don't re-apply. The agent prepares configs + deploys via
-  authed CLI + verifies; the **user** creates accounts, rotates/enters secrets, and buys nothing (all free).
+  Plan (Option A): **Vercel Hobby** (web app) + **Supabase** (already live) + **Resend free** email via the
+  `deliver-notifications` **Edge Function** + **Google Calendar** OAuth (free) + **OCR `worker/` on a free
+  Hugging Face Docker Space** (async, so the Vercel 10 s cap doesn't bite — set `WORKER_URL` +
+  `WORKER_SHARED_SECRET`). **VOICE (`transcription/`) DEFERRED** — the blocker is the Vercel Hobby ~10 s
+  function cap on the *synchronous* `/api/ai/transcribe` (not HF cost); launch with
+  `NEXT_PUBLIC_TRANSCRIPTION_ENABLED` + `TRANSCRIPTION_URL` unset (button hidden, route 503s gracefully), then
+  **the immediate next task is an async-transcription refactor → free HF transcription Space → enable.** FCM
+  push + Next 16 upgrade deferred. **Rotate `SUPABASE_SERVICE_ROLE_KEY` first** (into the Edge Function + OCR
+  Space; never the web app). Full runbook: `DEPLOYMENT.md` ("Free launch plan"). Migrations already applied
+  through `202607080010` — verify, don't re-apply. The agent prepares configs + gives the user **detailed
+  click-by-click setup steps** + deploys via authed CLI + verifies; the **user** creates accounts, rotates/
+  enters secrets, and buys nothing (all free).
 - **REDESIGN DONE + MERGED to `main` (PR #9, `4410d8b`, 2026-07-11).** Front-end-only visual redesign — the
   **"Night Watch"** identity (see DESIGN.md "Visual Identity" + `REDESIGN_REPORT.md`). Verified live against a
   seeded demo circle (Chen Family Care) on desktop + 375px mobile; QA caught + fixed one real bug (timeline

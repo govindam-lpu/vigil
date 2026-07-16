@@ -435,10 +435,15 @@ constraint: **free tier only, always-on** (no self-host — laptop can't stay on
   `npx supabase migration list --db-url "<SESSION_POOLER>"`, do NOT re-apply).
 - **Email → Resend free** via the `deliver-notifications` **Supabase Edge Function** + a pg_cron→pg_net trigger.
 - **Google Calendar import → free** Google Cloud OAuth client (`calendar.readonly`). `.ics` needs no config.
-- **Rotate `SUPABASE_SERVICE_ROLE_KEY` FIRST** (pasted in chat) → new value ONLY in the Edge Function secrets.
-- **Deferred (free path later = Hugging Face Spaces, 16 GB free RAM): `worker/` OCR + `transcription/` voice.**
-  Launch with `WORKER_URL` + `NEXT_PUBLIC_TRANSCRIPTION_ENABLED` unset — docs still upload/view, voice button
-  hidden, both degrade gracefully. **FCM web-push + Next 16 upgrade also deferred** (not selected).
+- **OCR worker (`worker/`) → free Hugging Face Docker Space** — **included at launch** (Option A). It's async, so
+  the Vercel Hobby ~10 s cap doesn't apply. Web app gets `WORKER_URL` + `WORKER_SHARED_SECRET`.
+- **Rotate `SUPABASE_SERVICE_ROLE_KEY` FIRST** (pasted in chat) → new value ONLY in the Edge Function + OCR
+  Space secrets (never the web app).
+- **VOICE (`transcription/`) deferred — blocker is the Vercel Hobby ~10 s cap on the synchronous
+  `/api/ai/transcribe`, not HF cost.** Launch with `NEXT_PUBLIC_TRANSCRIPTION_ENABLED` + `TRANSCRIPTION_URL`
+  unset (button hidden, route 503s gracefully). **The immediate next task after go-live is an async-transcription
+  refactor** (upload → return at once → poll for text), then a free HF transcription Space, then enable. **FCM
+  web-push + Next 16 upgrade also deferred** (not selected).
 
 **Role boundary (safety rules):** the agent CANNOT create accounts, enter secrets/API keys into hosting
 dashboards, or buy infra — those are the **user's** actions. The agent prepares configs/env templates/the Edge
