@@ -2,7 +2,9 @@
 
 import { Bell } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchJson } from "@/lib/query/fetch";
 import type { Notification } from "@/lib/types";
 import { relativeTime } from "@/lib/utils";
 
@@ -31,37 +33,32 @@ function dateGroup(iso: string): string {
 // by date; marks read on click (then navigates the action_url) or all-at-once.
 export function NotificationBell({ careCircleId }: { careCircleId: string | null }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  const load = useCallback(async () => {
-    if (!careCircleId) return;
-    try {
-      const response = await fetch(`/api/notifications?careCircleId=${careCircleId}`, { cache: "no-store" });
-      if (!response.ok) return;
-      const data = (await response.json()) as NotificationsResponse;
-      setNotifications(data.notifications);
-      setUnreadCount(data.unreadCount);
-    } catch {
-      // Offline or transient — keep the last known list.
-    }
-  }, [careCircleId]);
-
-  useEffect(() => {
-    void load();
-    const interval = window.setInterval(() => {
-      void load();
-    }, 60000);
-    return () => window.clearInterval(interval);
-  }, [load]);
+  const notificationsKey = ["notifications", careCircleId];
+  const notificationsQuery = useQuery({
+    queryKey: notificationsKey,
+    queryFn: () => fetchJson<NotificationsResponse>(`/api/notifications?careCircleId=${careCircleId}`),
+    enabled: Boolean(careCircleId),
+    refetchInterval: 60_000,
+    staleTime: 30_000
+  });
+  const notifications = notificationsQuery.data?.notifications ?? [];
+  const unreadCount = notificationsQuery.data?.unreadCount ?? 0;
 
   const markRead = async (notification: Notification) => {
     if (careCircleId && !notification.is_read) {
-      setNotifications((current) =>
-        current.map((item) => (item.id === notification.id ? { ...item, is_read: true } : item))
+      queryClient.setQueryData<NotificationsResponse>(notificationsKey, (current) =>
+        current
+          ? {
+              notifications: current.notifications.map((item) =>
+                item.id === notification.id ? { ...item, is_read: true } : item
+              ),
+              unreadCount: Math.max(0, current.unreadCount - 1)
+            }
+          : current
       );
-      setUnreadCount((count) => Math.max(0, count - 1));
       await fetch("/api/notifications", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -76,8 +73,11 @@ export function NotificationBell({ careCircleId }: { careCircleId: string | null
 
   const markAllRead = async () => {
     if (!careCircleId) return;
-    setNotifications((current) => current.map((item) => ({ ...item, is_read: true })));
-    setUnreadCount(0);
+    queryClient.setQueryData<NotificationsResponse>(notificationsKey, (current) =>
+      current
+        ? { notifications: current.notifications.map((item) => ({ ...item, is_read: true })), unreadCount: 0 }
+        : current
+    );
     await fetch("/api/notifications", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

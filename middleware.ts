@@ -20,15 +20,21 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // API routes authenticate themselves (and, unlike Server Components, route handlers
+  // CAN persist a refreshed session cookie). Running getUser() here too added a full
+  // Supabase Auth round-trip to every single API call for nothing.
+  if (pathname.startsWith("/api")) {
+    return response;
+  }
+
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
   const isLogin = pathname.startsWith("/login");
-  const isApi = pathname.startsWith("/api");
 
   if (!user) {
-    if (isLogin || isApi) {
+    if (isLogin) {
       return response;
     }
 

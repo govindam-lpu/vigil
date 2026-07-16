@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import type { HydratedDocument } from "@/lib/types";
 
 function labelize(value: string): string {
@@ -18,33 +20,15 @@ export function CrisisDocumentsView() {
   const careCircleId = activeCircle?.careCircle.id ?? null;
   const personId = activeCircle?.person?.id ?? null;
 
-  const [documents, setDocuments] = useState<HydratedDocument[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    if (!careCircleId || !personId) return;
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        setError(null);
-        const response = await fetch(
-          `/api/documents?careCircleId=${careCircleId}&personId=${personId}&smartView=pinned`
-        );
-        if (!response.ok) throw new Error("Request failed");
-        const json = (await response.json()) as { documents?: HydratedDocument[] };
-        if (!cancelled) setDocuments(json.documents ?? []);
-      } catch {
-        if (!cancelled) setError("We couldn't load documents. Check your connection and try again.");
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [careCircleId, personId, reloadKey]);
+  const documentsQuery = useQuery({
+    queryKey: ["documents", careCircleId, personId, { folderId: null, smartView: "pinned" }],
+    queryFn: () =>
+      fetchJson<{ documents?: HydratedDocument[] }>(
+        `/api/documents?careCircleId=${careCircleId}&personId=${personId}&smartView=pinned`
+      ),
+    enabled: Boolean(careCircleId && personId)
+  });
+  const documents = documentsQuery.data?.documents ?? [];
 
   const openDocument = async (documentId: string) => {
     if (!careCircleId || !personId) return;
@@ -59,7 +43,7 @@ export function CrisisDocumentsView() {
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] space-y-4 p-6">
+    <div className="mx-auto max-w-[1280px] space-y-4 p-4 sm:p-6">
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Emergency Packet documents</h1>
         <p className="mt-1 text-sm text-neutral-500">
@@ -67,11 +51,18 @@ export function CrisisDocumentsView() {
         </p>
       </div>
 
-      {error ? <LoadError message={error} onRetry={() => setReloadKey((key) => key + 1)} /> : null}
+      {documentsQuery.isError ? (
+        <LoadError
+          message="We couldn't load documents. Check your connection and try again."
+          onRetry={() => void documentsQuery.refetch()}
+        />
+      ) : null}
 
       <Card>
         <CardContent className="space-y-2 py-4">
-          {documents.length === 0 ? (
+          {documentsQuery.isPending ? (
+            <SkeletonRows rows={3} className="[&>div]:h-8" />
+          ) : documents.length === 0 ? (
             <p className="text-sm text-neutral-500">No documents are pinned for crisis yet.</p>
           ) : (
             documents.map((document) => (

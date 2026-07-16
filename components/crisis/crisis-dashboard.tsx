@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { HeartPulse, Phone, PenLine } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
+import { fetchJson } from "@/lib/query/fetch";
 import { EmergencyPacketModal } from "@/components/crisis/emergency-packet-modal";
 import { RecordUpdateModal } from "@/components/crisis/record-update-modal";
 import { CheckInModal } from "@/components/shared/check-in-modal";
@@ -32,57 +35,53 @@ export function CrisisDashboard() {
   const personId = person?.id ?? null;
   const canGenerate = Boolean(activeCircle && roleMeetsMinimum(activeCircle.membership.role, "coordinator"));
 
-  const [medications, setMedications] = useState<HydratedMedication[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [documents, setDocuments] = useState<HydratedDocument[]>([]);
-  const [timeline, setTimeline] = useState<HydratedTimelineEvent[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
-
+  const queryClient = useQueryClient();
   const [packetOpen, setPacketOpen] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [updateOpen, setUpdateOpen] = useState(false);
 
-  const reload = () => setReloadKey((key) => key + 1);
+  const ready = Boolean(careCircleId && personId);
 
-  useEffect(() => {
-    if (!careCircleId || !personId) return;
-    let cancelled = false;
+  // These reuse the same cache keys as the regular views, so entering crisis mode
+  // renders instantly from anything already loaded — important under stress.
+  const medicationsQuery = useQuery({
+    queryKey: ["medications", careCircleId, personId],
+    queryFn: () => fetchJson<{ medications?: HydratedMedication[] }>(`/api/medications?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: ready
+  });
+  const contactsQuery = useQuery({
+    queryKey: ["contacts", careCircleId, personId],
+    queryFn: () => fetchJson<{ contacts?: Contact[] }>(`/api/contacts?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: ready
+  });
+  const documentsQuery = useQuery({
+    queryKey: ["documents", careCircleId, personId, { folderId: null, smartView: "pinned" }],
+    queryFn: () =>
+      fetchJson<{ documents?: HydratedDocument[] }>(`/api/documents?careCircleId=${careCircleId}&personId=${personId}&smartView=pinned`),
+    enabled: ready
+  });
+  const timelineQuery = useQuery({
+    queryKey: ["timeline-recent", careCircleId, personId],
+    queryFn: () =>
+      fetchJson<{ events?: HydratedTimelineEvent[] }>(`/api/timeline?careCircleId=${careCircleId}&personId=${personId}&type=all&offset=0`),
+    enabled: ready
+  });
 
-    const load = async () => {
-      try {
-        setError(null);
-        const [medResponse, contactResponse, documentResponse, timelineResponse] = await Promise.all([
-          fetch(`/api/medications?careCircleId=${careCircleId}&personId=${personId}`),
-          fetch(`/api/contacts?careCircleId=${careCircleId}&personId=${personId}`),
-          fetch(`/api/documents?careCircleId=${careCircleId}&personId=${personId}&smartView=pinned`),
-          fetch(`/api/timeline?careCircleId=${careCircleId}&personId=${personId}`)
-        ]);
-        if (!medResponse.ok || !contactResponse.ok || !documentResponse.ok || !timelineResponse.ok) {
-          throw new Error("Request failed");
-        }
-        const medJson = (await medResponse.json()) as { medications?: HydratedMedication[] };
-        const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
-        const documentJson = (await documentResponse.json()) as { documents?: HydratedDocument[] };
-        const timelineJson = (await timelineResponse.json()) as { events?: HydratedTimelineEvent[] };
+  const medications = (medicationsQuery.data?.medications ?? []).filter((med) => med.status === "active");
+  const contacts = (contactsQuery.data?.contacts ?? []).filter(
+    (contact) => contact.is_emergency_contact || contact.pinned_in_crisis
+  );
+  const documents = documentsQuery.data?.documents ?? [];
+  const timeline = (timelineQuery.data?.events ?? []).slice(0, 10);
+  const error = medicationsQuery.isError || contactsQuery.isError || documentsQuery.isError || timelineQuery.isError;
 
-        if (cancelled) return;
-        setMedications((medJson.medications ?? []).filter((med) => med.status === "active"));
-        setContacts((contactJson.contacts ?? []).filter((contact) => contact.is_emergency_contact || contact.pinned_in_crisis));
-        setDocuments(documentJson.documents ?? []);
-        setTimeline((timelineJson.events ?? []).slice(0, 10));
-      } catch {
-        if (!cancelled) {
-          setError("We couldn't load crisis information. Check your connection and try again.");
-        }
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [careCircleId, personId, reloadKey]);
+  const reload = () => {
+    void queryClient.invalidateQueries({ queryKey: ["medications", careCircleId, personId] });
+    void queryClient.invalidateQueries({ queryKey: ["contacts", careCircleId, personId] });
+    void queryClient.invalidateQueries({ queryKey: ["documents", careCircleId, personId] });
+    void queryClient.invalidateQueries({ queryKey: ["timeline-recent", careCircleId, personId] });
+    void queryClient.invalidateQueries({ queryKey: ["check-ins", careCircleId, personId] });
+  };
 
   const openDocument = async (documentId: string) => {
     if (!careCircleId || !personId) return;
@@ -131,7 +130,9 @@ export function CrisisDashboard() {
         </div>
       </div>
 
-      {error ? <LoadError message={error} onRetry={reload} /> : null}
+      {error ? (
+        <LoadError message="We couldn't load crisis information. Check your connection and try again." onRetry={reload} />
+      ) : null}
 
       {/* Critical info: medications (left) + emergency contacts (right) */}
       <div className="grid gap-5 lg:grid-cols-2">
@@ -140,7 +141,9 @@ export function CrisisDashboard() {
             <CardTitle>Active medications</CardTitle>
           </CardHeader>
           <CardContent>
-            {medications.length === 0 ? (
+            {medicationsQuery.isPending ? (
+              <SkeletonRows rows={2} className="[&>div]:h-8" />
+            ) : medications.length === 0 ? (
               <p className="text-sm text-neutral-500">No active medications.</p>
             ) : (
               <div className="overflow-x-auto">
@@ -174,7 +177,9 @@ export function CrisisDashboard() {
             <CardTitle>Emergency contacts</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {contacts.length === 0 ? (
+            {contactsQuery.isPending ? (
+              <SkeletonRows rows={2} className="[&>div]:h-8" />
+            ) : contacts.length === 0 ? (
               <p className="text-sm text-neutral-500">No emergency contacts pinned.</p>
             ) : (
               contacts.map((contact) => (
@@ -209,7 +214,9 @@ export function CrisisDashboard() {
           <CardTitle>Pinned documents</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {documents.length === 0 ? (
+          {documentsQuery.isPending ? (
+            <SkeletonRows rows={2} className="[&>div]:h-6" />
+          ) : documents.length === 0 ? (
             <p className="text-sm text-neutral-500">No documents pinned for crisis.</p>
           ) : (
             documents.map((document) => (
@@ -237,7 +244,9 @@ export function CrisisDashboard() {
           <CardTitle>Recent timeline</CardTitle>
         </CardHeader>
         <CardContent>
-          {timeline.length === 0 ? (
+          {timelineQuery.isPending ? (
+            <SkeletonRows rows={3} className="[&>div]:h-6" />
+          ) : timeline.length === 0 ? (
             <p className="text-sm text-neutral-500">No recent activity.</p>
           ) : (
             <ul className="divide-y divide-neutral-100">

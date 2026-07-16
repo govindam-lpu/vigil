@@ -3,16 +3,19 @@
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DetailSheet } from "@/components/ui/detail-sheet";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LoadError } from "@/components/ui/load-error";
+import { Skeleton, SkeletonRows } from "@/components/ui/skeleton";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
 import { createClient } from "@/lib/supabase/client";
+import { fetchJson } from "@/lib/query/fetch";
 import type { AppointmentStatus, AppointmentType, Contact, Folder, HydratedAppointment, HydratedDocument, MemberSummary } from "@/lib/types";
 import { cn, formatMonth, toDateTimeLocalValue } from "@/lib/utils";
 
@@ -27,64 +30,84 @@ const statusVariant: Record<AppointmentStatus, "neutral" | "green" | "red"> = {
 
 export function AppointmentsView() {
   return (
-    <Suspense fallback={<div className="p-6">Loading calendar…</div>}>
+    <Suspense fallback={<AppointmentsSkeleton />}>
       <AppointmentsContent />
     </Suspense>
   );
 }
 
+function AppointmentsSkeleton() {
+  return (
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6" aria-busy="true">
+      <div className="flex items-center justify-between border-b border-neutral-200 py-3">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-32" />
+          <Skeleton className="h-4 w-60" />
+        </div>
+        <Skeleton className="h-10 w-40" />
+      </div>
+      <div className="mt-5">
+        <SkeletonRows rows={6} />
+      </div>
+    </div>
+  );
+}
+
 function AppointmentsContent() {
   const { activeCircle } = useActiveCircle();
+  const queryClient = useQueryClient();
   const searchParams = useSearchParams();
   const appointmentParam = searchParams.get("appointment");
-  const [appointments, setAppointments] = useState<HydratedAppointment[]>([]);
-  const [members, setMembers] = useState<MemberSummary[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
   const [mode, setMode] = useState<ViewMode>("list");
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(appointmentParam);
-  const [error, setError] = useState<string | null>(null);
+  const [detailOpen, setDetailOpen] = useState(Boolean(appointmentParam));
+
+  const careCircleId = activeCircle?.careCircle.id ?? null;
+  const personId = activeCircle?.person?.id ?? null;
+
+  const appointmentsQuery = useQuery({
+    queryKey: ["appointments", careCircleId, personId],
+    queryFn: () =>
+      fetchJson<{ appointments?: HydratedAppointment[] }>(`/api/appointments?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId)
+  });
+  const membersQuery = useQuery({
+    queryKey: ["members", careCircleId],
+    queryFn: () => fetchJson<{ members?: MemberSummary[] }>(`/api/memberships?careCircleId=${careCircleId}`),
+    enabled: Boolean(careCircleId),
+    staleTime: 5 * 60_000
+  });
+  const foldersQuery = useQuery({
+    queryKey: ["folders", careCircleId, personId],
+    queryFn: () => fetchJson<{ folders?: Folder[] }>(`/api/folders?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId),
+    staleTime: 5 * 60_000
+  });
+  const contactsQuery = useQuery({
+    queryKey: ["contacts", careCircleId, personId],
+    queryFn: () => fetchJson<{ contacts?: Contact[] }>(`/api/contacts?careCircleId=${careCircleId}&personId=${personId}`),
+    enabled: Boolean(careCircleId && personId),
+    staleTime: 5 * 60_000
+  });
+
+  const appointments = useMemo(() => appointmentsQuery.data?.appointments ?? [], [appointmentsQuery.data]);
+  const members = membersQuery.data?.members ?? [];
+  const folders = foldersQuery.data?.folders ?? [];
+  const contacts = contactsQuery.data?.contacts ?? [];
+  const loading = appointmentsQuery.isPending;
 
   const selected = appointments.find((appointment) => appointment.id === selectedId) ?? appointments[0] ?? null;
 
-  const load = async (isCancelled?: () => boolean) => {
-    if (!activeCircle?.person) return;
-    try {
-      setError(null);
-      const [appointmentResponse, memberResponse, folderResponse, contactResponse] = await Promise.all([
-        fetch(`/api/appointments?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-        fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`),
-        fetch(`/api/folders?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`),
-        fetch(`/api/contacts?careCircleId=${activeCircle.careCircle.id}&personId=${activeCircle.person.id}`)
-      ]);
-      if (!appointmentResponse.ok || !memberResponse.ok || !folderResponse.ok || !contactResponse.ok) throw new Error("Request failed");
-      const appointmentJson = (await appointmentResponse.json()) as { appointments?: HydratedAppointment[] };
-      const memberJson = (await memberResponse.json()) as { members?: MemberSummary[] };
-      const folderJson = (await folderResponse.json()) as { folders?: Folder[] };
-      const contactJson = (await contactResponse.json()) as { contacts?: Contact[] };
-      if (isCancelled?.()) return;
-      setAppointments(appointmentJson.appointments ?? []);
-      setMembers(memberJson.members ?? []);
-      setFolders(folderJson.folders ?? []);
-      setContacts(contactJson.contacts ?? []);
-    } catch {
-      if (isCancelled?.()) return;
-      setError("We couldn't load appointments. Check your connection and try again.");
-    }
+  const reload = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["appointments", careCircleId, personId] });
   };
 
   useEffect(() => {
-    let cancelled = false;
-    void load(() => cancelled);
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCircle?.careCircle.id, activeCircle?.person?.id]);
-
-  useEffect(() => {
-    if (appointmentParam) setSelectedId(appointmentParam);
+    if (appointmentParam) {
+      setSelectedId(appointmentParam);
+      setDetailOpen(true);
+    }
   }, [appointmentParam]);
 
   const grouped = useMemo(() => {
@@ -98,12 +121,17 @@ function AppointmentsContent() {
 
   if (!activeCircle?.person) return null;
 
+  const selectAppointment = (id: string) => {
+    setSelectedId(id);
+    setDetailOpen(true);
+  };
+
   return (
-    <div className="mx-auto max-w-[1280px] p-6">
-      <div className="sticky top-14 z-20 -mx-2 flex items-center justify-between border-b border-neutral-200 bg-neutral-50 px-2 py-3">
-        <div>
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6">
+      <div className="sticky top-14 z-20 -mx-2 flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50 px-2 py-3">
+        <div className="min-w-0">
           <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Calendar</h1>
-          <p className="text-sm text-neutral-500">Track appointments, outcomes, and reminders.</p>
+          <p className="hidden text-sm text-neutral-500 sm:block">Track appointments, outcomes, and reminders.</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="rounded-lg border border-neutral-200 bg-white p-1">
@@ -116,23 +144,29 @@ function AppointmentsContent() {
           </div>
           <Button onClick={() => setModalOpen(true)}>
             <Plus className="h-4 w-4" aria-hidden="true" />
-            Add Appointment
+            <span className="hidden sm:inline">Add Appointment</span>
+            <span className="sm:hidden">Add</span>
           </Button>
         </div>
       </div>
 
-      {error ? (
+      {appointmentsQuery.isError ? (
         <div className="mt-5">
-          <LoadError message={error} onRetry={() => void load()} />
+          <LoadError
+            message="We couldn't load appointments. Check your connection and try again."
+            onRetry={() => void appointmentsQuery.refetch()}
+          />
         </div>
       ) : null}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         {mode === "list" ? (
-          <section className="space-y-5">
-            {appointments.length === 0 ? (
+          <section className="min-w-0 space-y-5">
+            {loading ? (
+              <SkeletonRows rows={5} />
+            ) : appointments.length === 0 ? (
               <Card className="flex items-start gap-3">
-                <CalendarDays className="mt-1 h-5 w-5 text-neutral-400" aria-hidden="true" />
+                <CalendarDays className="mt-1 h-5 w-5 shrink-0 text-neutral-400" aria-hidden="true" />
                 <p className="text-base text-neutral-600"><span className="font-display tracking-tight">No appointments scheduled.</span> Add appointments to track upcoming visits.</p>
               </Card>
             ) : (
@@ -140,36 +174,29 @@ function AppointmentsContent() {
                 <div key={month} className="rounded-xl border border-neutral-200 bg-white">
                   <h2 className="border-b border-neutral-200 px-4 py-3 text-md font-semibold text-neutral-900">{month}</h2>
                   {items.map((appointment) => (
-                    <button
+                    <AppointmentRow
                       key={appointment.id}
-                      className={cn("grid w-full grid-cols-[64px_1fr_110px_90px_120px] items-center gap-3 border-b border-neutral-100 px-4 py-3 text-left hover:bg-neutral-50", selected?.id === appointment.id && "bg-brand-50")}
-                      onClick={() => setSelectedId(appointment.id)}
-                    >
-                      <DateBadge value={appointment.scheduled_at} />
-                      <div>
-                        <p className="font-semibold text-neutral-900">{appointment.title}</p>
-                        <p className="text-sm text-neutral-500">{appointment.provider_name || "No provider listed"}</p>
-                      </div>
-                      <Badge variant="neutral">{labelize(appointment.appointment_type ?? "other")}</Badge>
-                      <Badge variant={statusVariant[appointment.status]}>{labelize(appointment.status)}</Badge>
-                      <div className="flex items-center -space-x-2">
-                        {appointment.attendees.slice(0, 4).map((attendee) => (
-                          <Avatar key={attendee.id} name={attendee.display_name} src={attendee.avatar_url} className="h-7 w-7 border-white" />
-                        ))}
-                        <span className="pl-3 font-mono text-sm text-neutral-500">{appointment.duration_minutes ? `${appointment.duration_minutes} min` : ""}</span>
-                      </div>
-                    </button>
+                      appointment={appointment}
+                      selected={selected?.id === appointment.id}
+                      onSelect={() => selectAppointment(appointment.id)}
+                    />
                   ))}
                 </div>
               ))
             )}
           </section>
         ) : (
-          <CalendarGrid appointments={appointments} onSelect={(id) => setSelectedId(id)} />
+          <CalendarGrid appointments={appointments} onSelect={selectAppointment} />
         )}
 
-        <AppointmentDetail key={selected?.id ?? "none"} appointment={selected} members={members} folders={folders} onReload={load} />
+        <aside className="hidden h-fit lg:block">
+          <AppointmentDetailCard key={selected?.id ?? "none"} appointment={selected} members={members} folders={folders} onReload={reload} />
+        </aside>
       </div>
+
+      <DetailSheet open={detailOpen && Boolean(selected)} onClose={() => setDetailOpen(false)} title={selected?.title ?? "Appointment"}>
+        <AppointmentDetailBody key={selected?.id ?? "none"} appointment={selected} members={members} folders={folders} onReload={reload} />
+      </DetailSheet>
 
       {modalOpen ? (
         <AppointmentModal
@@ -180,7 +207,7 @@ function AppointmentsContent() {
           onClose={() => setModalOpen(false)}
           onSaved={async () => {
             setModalOpen(false);
-            await load();
+            await reload();
           }}
         />
       ) : null}
@@ -188,16 +215,77 @@ function AppointmentsContent() {
   );
 }
 
-function AppointmentDetail({ appointment, members, folders, onReload }: { appointment: HydratedAppointment | null; members: MemberSummary[]; folders: Folder[]; onReload: () => Promise<void> }) {
-  const [outcome, setOutcome] = useState("");
+// Flexible row: date badge + title/provider always; status from sm, type from md,
+// attendees/duration from xl. The old fixed 432px grid forced page-wide sideways
+// scrolling on phones.
+function AppointmentRow({
+  appointment,
+  selected,
+  onSelect
+}: {
+  appointment: HydratedAppointment;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "flex w-full items-center gap-3 border-b border-neutral-100 px-4 py-3 text-left hover:bg-neutral-50",
+        selected && "bg-brand-50"
+      )}
+      onClick={onSelect}
+    >
+      <DateBadge value={appointment.scheduled_at} />
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-semibold text-neutral-900">{appointment.title}</p>
+        <p className="truncate text-sm text-neutral-500">{appointment.provider_name || "No provider listed"}</p>
+        <span className="mt-1 inline-flex sm:hidden">
+          <Badge variant={statusVariant[appointment.status]}>{labelize(appointment.status)}</Badge>
+        </span>
+      </div>
+      <span className="hidden shrink-0 md:inline-flex">
+        <Badge variant="neutral">{labelize(appointment.appointment_type ?? "other")}</Badge>
+      </span>
+      <span className="hidden shrink-0 sm:inline-flex">
+        <Badge variant={statusVariant[appointment.status]}>{labelize(appointment.status)}</Badge>
+      </span>
+      <span className="hidden shrink-0 items-center -space-x-2 xl:flex">
+        {appointment.attendees.slice(0, 4).map((attendee) => (
+          <Avatar key={attendee.id} name={attendee.display_name} src={attendee.avatar_url} className="h-7 w-7 border-white" />
+        ))}
+        <span className="pl-3 font-mono text-sm text-neutral-500">{appointment.duration_minutes ? `${appointment.duration_minutes} min` : ""}</span>
+      </span>
+    </button>
+  );
+}
+
+type AppointmentDetailProps = {
+  appointment: HydratedAppointment | null;
+  members: MemberSummary[];
+  folders: Folder[];
+  onReload: () => Promise<void>;
+};
+
+function AppointmentDetailCard(props: AppointmentDetailProps) {
+  if (!props.appointment) return <Card className="h-fit">Select an appointment to view details.</Card>;
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <AppointmentDetailBody {...props} />
+    </div>
+  );
+}
+
+function AppointmentDetailBody({ appointment, members, folders, onReload }: AppointmentDetailProps) {
+  const [outcome, setOutcome] = useState(appointment?.outcome ?? "");
   const [followUps, setFollowUps] = useState("");
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     setOutcome(appointment?.outcome ?? "");
     setFollowUps("");
   }, [appointment?.id, appointment?.outcome]);
 
-  if (!appointment) return <Card className="hidden h-fit lg:block">Select an appointment to view details.</Card>;
+  if (!appointment) return null;
 
   const update = async (payload: Partial<HydratedAppointment>) => {
     await fetch("/api/appointments", {
@@ -243,10 +331,12 @@ function AppointmentDetail({ appointment, members, folders, onReload }: { appoin
     });
     setFollowUps("");
     await onReload();
+    // Follow-ups create task rows — refresh any cached task lists too.
+    void queryClient.invalidateQueries({ queryKey: ["tasks", appointment.care_circle_id] });
   };
 
   return (
-    <aside className="h-fit rounded-xl border border-neutral-200 bg-white p-4">
+    <div>
       <EditableInput label="Title" value={appointment.title} onSave={(value) => update({ title: value })} />
       <EditableInput label="Provider" value={appointment.provider_name ?? ""} onSave={(value) => update({ provider_name: value || null })} />
       <EditableInput label="Location" value={appointment.location ?? ""} onSave={(value) => update({ location: value || null })} />
@@ -309,24 +399,24 @@ function AppointmentDetail({ appointment, members, folders, onReload }: { appoin
       <Button className="mt-4" size="sm" variant="secondary" onClick={() => update({ deleted_at: new Date().toISOString() })}>
         Archive
       </Button>
-    </aside>
+    </div>
   );
 }
 
 function AppointmentAttachments({ appointment, folders }: { appointment: HydratedAppointment; folders: Folder[] }) {
-  const [documents, setDocuments] = useState<HydratedDocument[]>([]);
-
-  const load = async () => {
-    const params = new URLSearchParams({ careCircleId: appointment.care_circle_id, personId: appointment.person_id, appointmentId: appointment.id });
-    const response = await fetch(`/api/documents?${params.toString()}`);
-    const json = (await response.json()) as { documents?: HydratedDocument[] };
-    setDocuments(json.documents ?? []);
-  };
-
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointment.id]);
+  const queryClient = useQueryClient();
+  const attachmentsQuery = useQuery({
+    queryKey: ["documents", appointment.care_circle_id, appointment.person_id, { appointmentId: appointment.id }],
+    queryFn: () => {
+      const params = new URLSearchParams({
+        careCircleId: appointment.care_circle_id,
+        personId: appointment.person_id,
+        appointmentId: appointment.id
+      });
+      return fetchJson<{ documents?: HydratedDocument[] }>(`/api/documents?${params.toString()}`);
+    }
+  });
+  const documents = attachmentsQuery.data?.documents ?? [];
 
   const upload = async (file: File) => {
     const supabase = createClient();
@@ -350,7 +440,7 @@ function AppointmentAttachments({ appointment, folders }: { appointment: Hydrate
         description: `Attachment for ${appointment.title}`
       })
     });
-    await load();
+    await queryClient.invalidateQueries({ queryKey: ["documents", appointment.care_circle_id] });
   };
 
   const openDocument = async (documentId: string) => {
@@ -474,21 +564,34 @@ function CalendarGrid({ appointments, onSelect }: { appointments: HydratedAppoin
   const days = Array.from({ length: 35 }, (_, index) => index + 1);
   const today = new Date().getDate();
   return (
-    <section className="rounded-xl border border-neutral-200 bg-white p-4">
-      <div className="grid grid-cols-7 gap-2">
+    <section className="min-w-0 rounded-xl border border-neutral-200 bg-white p-2 sm:p-4">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {days.map((day) => {
           const items = appointments.filter((appointment) => new Date(appointment.scheduled_at).getDate() === day);
           return (
-            <div key={day} className="min-h-24 rounded border border-neutral-200 p-2">
+            <div key={day} className="min-h-16 min-w-0 rounded border border-neutral-200 p-1.5 sm:min-h-24 sm:p-2">
               <p className="flex items-center gap-1 font-mono text-xs font-semibold text-neutral-500">
                 {day}
                 {day === today ? <span className="ember-dot" aria-hidden="true" /> : null}
               </p>
-              {items.slice(0, 3).map((appointment) => (
-                <button key={appointment.id} className="mt-1 block max-w-full truncate rounded bg-brand-50 px-2 py-1 text-xs text-brand-700" onClick={() => onSelect(appointment.id)}>
-                  {appointment.title}
-                </button>
-              ))}
+              {/* Phones don't have room for title chips — show tap-able dots instead. */}
+              <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
+                {items.slice(0, 4).map((appointment) => (
+                  <button
+                    key={appointment.id}
+                    aria-label={appointment.title}
+                    className="h-2 w-2 rounded-full bg-brand-600"
+                    onClick={() => onSelect(appointment.id)}
+                  />
+                ))}
+              </div>
+              <div className="hidden sm:block">
+                {items.slice(0, 3).map((appointment) => (
+                  <button key={appointment.id} className="mt-1 block max-w-full truncate rounded bg-brand-50 px-2 py-1 text-xs text-brand-700" onClick={() => onSelect(appointment.id)}>
+                    {appointment.title}
+                  </button>
+                ))}
+              </div>
             </div>
           );
         })}
@@ -500,7 +603,7 @@ function CalendarGrid({ appointments, onSelect }: { appointments: HydratedAppoin
 function DateBadge({ value }: { value: string }) {
   const date = new Date(value);
   return (
-    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-center">
+    <div className="shrink-0 rounded-lg border border-neutral-200 bg-neutral-50 p-2 text-center">
       <p className="font-mono text-xs font-semibold uppercase text-neutral-500">{date.toLocaleDateString("en", { month: "short" })}</p>
       <p className="font-mono text-lg font-semibold text-neutral-900">{date.getDate()}</p>
     </div>

@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { Plus, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import { roleLabel } from "@/lib/permissions/roles";
 import { formatPersonName, getInitials, relativeTime } from "@/lib/utils";
 import type { WorkspaceSummary } from "@/lib/types";
@@ -15,30 +17,12 @@ import type { WorkspaceSummary } from "@/lib/types";
 export function WorkspacesView() {
   const router = useRouter();
   const { setActiveCareCircleId } = useActiveCircle();
-  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
-  const load = async (isCancelled?: () => boolean) => {
-    try {
-      setError(null);
-      const response = await fetch("/api/workspaces");
-      if (!response.ok) throw new Error("Request failed");
-      const json = (await response.json()) as { workspaces?: WorkspaceSummary[] };
-      if (isCancelled?.()) return;
-      setWorkspaces(json.workspaces ?? []);
-    } catch {
-      if (isCancelled?.()) return;
-      setError("We couldn't load your care circles. Check your connection and try again.");
-    }
-  };
-
-  useEffect(() => {
-    let cancelled = false;
-    void load(() => cancelled);
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const workspacesQuery = useQuery({
+    queryKey: ["workspaces"],
+    queryFn: () => fetchJson<{ workspaces?: WorkspaceSummary[] }>("/api/workspaces")
+  });
+  const workspaces = workspacesQuery.isPending ? null : workspacesQuery.data?.workspaces ?? [];
 
   const open = (careCircleId: string) => {
     setActiveCareCircleId(careCircleId);
@@ -46,21 +30,22 @@ export function WorkspacesView() {
   };
 
   return (
-    <div className="mx-auto max-w-[1280px] p-6">
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6">
       <div>
         <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Your care circles</h1>
         <p className="text-sm text-neutral-500">Choose a care circle to open, or create a new one.</p>
       </div>
 
-      {error ? (
+      {workspacesQuery.isError ? (
         <div className="mt-6">
-          <LoadError message={error} onRetry={() => void load()} />
+          <LoadError
+            message="We couldn't load your care circles. Check your connection and try again."
+            onRetry={() => void workspacesQuery.refetch()}
+          />
         </div>
       ) : null}
 
-      {workspaces === null && !error ? (
-        <p className="mt-6 text-sm text-neutral-500">Loading…</p>
-      ) : null}
+      {workspacesQuery.isPending ? <SkeletonRows rows={2} className="mt-6 [&>div]:h-32" /> : null}
 
       {workspaces ? (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

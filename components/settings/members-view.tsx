@@ -1,13 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Shield, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LoadError } from "@/components/ui/load-error";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import { roleLabel } from "@/lib/permissions/roles";
 import {
   CAPABILITY_GROUPS,
@@ -26,54 +29,42 @@ type PermissionsResponse = {
 
 export function MembersView() {
   const { activeCircle } = useActiveCircle();
-  const [members, setMembers] = useState<MemberSummary[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [selected, setSelected] = useState<MemberSummary | null>(null);
 
   const role = activeCircle?.membership.role;
   const canManage = role === "owner" || role === "coordinator";
+  const careCircleId = activeCircle?.careCircle.id ?? null;
 
-  const load = useCallback(
-    async (isCancelled?: () => boolean) => {
-      if (!activeCircle) return;
-      try {
-        setError(null);
-        const response = await fetch(`/api/memberships?careCircleId=${activeCircle.careCircle.id}`);
-        if (!response.ok) throw new Error("Request failed");
-        const json = (await response.json()) as { members?: MemberSummary[] };
-        if (isCancelled?.()) return;
-        setMembers(json.members ?? []);
-      } catch {
-        if (isCancelled?.()) return;
-        setError("We couldn't load members. Check your connection and try again.");
-      }
-    },
-    [activeCircle]
-  );
+  const membersQuery = useQuery({
+    queryKey: ["members", careCircleId],
+    queryFn: () => fetchJson<{ members?: MemberSummary[] }>(`/api/memberships?careCircleId=${careCircleId}`),
+    enabled: Boolean(careCircleId),
+    staleTime: 5 * 60_000
+  });
+  const members = membersQuery.data?.members ?? [];
 
-  useEffect(() => {
-    let cancelled = false;
-    void load(() => cancelled);
-    return () => {
-      cancelled = true;
-    };
-  }, [load]);
+  const load = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["members", careCircleId] });
+  };
 
   if (!activeCircle) return null;
 
   return (
-    <div className="mx-auto max-w-[1280px] p-6">
+    <div className="mx-auto max-w-[1280px] p-4 sm:p-6">
       <SettingsNav />
       <div className="mt-4">
         <h1 className="font-display text-xl font-semibold tracking-tight text-neutral-900">Members</h1>
         <p className="text-sm text-neutral-500">Roles and granular permission overrides for this care circle.</p>
       </div>
 
-      {error ? (
+      {membersQuery.isError ? (
         <div className="mt-4">
-          <LoadError message={error} onRetry={() => void load()} />
+          <LoadError message="We couldn't load members. Check your connection and try again." onRetry={() => void load()} />
         </div>
       ) : null}
+
+      {membersQuery.isPending ? <SkeletonRows rows={3} className="mt-6" /> : null}
 
       <div className="mt-6 space-y-2">
         {members.map((member) => (

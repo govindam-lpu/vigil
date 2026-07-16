@@ -3,10 +3,13 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { SkeletonRows } from "@/components/ui/skeleton";
 import { useActiveCircle } from "@/components/shell/active-circle-provider";
+import { fetchJson } from "@/lib/query/fetch";
 import type { SearchResult } from "@/lib/types";
 import { formatDateTime } from "@/lib/utils";
 
@@ -26,7 +29,7 @@ function SearchContent() {
   const [query, setQuery] = useState(searchParams.get("q") ?? "");
   const [all, setAll] = useState(searchParams.get("all") === "true");
   const [tab, setTab] = useState<SearchTab>("all");
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
 
   useEffect(() => {
     setQuery(searchParams.get("q") ?? "");
@@ -34,23 +37,32 @@ function SearchContent() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!activeCircle?.person || query.trim().length < 2) {
-      setResults([]);
-      return;
-    }
-    const timeoutId = window.setTimeout(async () => {
+    const timeoutId = window.setTimeout(() => setDebouncedQuery(query), 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [query]);
+
+  const careCircleId = activeCircle?.careCircle.id ?? null;
+  const personId = activeCircle?.person?.id ?? null;
+  const searchable = Boolean(careCircleId && personId && debouncedQuery.trim().length >= 2);
+
+  const searchQuery = useQuery({
+    queryKey: ["search", careCircleId, personId, all, debouncedQuery.trim()],
+    queryFn: () => {
       const params = new URLSearchParams({
-        q: query,
-        careCircleId: activeCircle.careCircle.id,
-        personId: activeCircle.person?.id ?? "",
+        q: debouncedQuery,
+        careCircleId: careCircleId ?? "",
+        personId: personId ?? "",
         all: String(all)
       });
-      const response = await fetch(`/api/search?${params.toString()}`);
-      const json = (await response.json()) as { results?: SearchResult[] };
-      setResults(json.results ?? []);
-    }, 300);
-    return () => window.clearTimeout(timeoutId);
-  }, [activeCircle?.careCircle.id, activeCircle?.person, activeCircle?.person?.id, all, query]);
+      return fetchJson<{ results?: SearchResult[] }>(`/api/search?${params.toString()}`);
+    },
+    enabled: searchable,
+    // Keep the previous results on screen while the next keystroke's search runs.
+    placeholderData: keepPreviousData
+  });
+
+  const results = useMemo(() => (searchable ? searchQuery.data?.results ?? [] : []), [searchable, searchQuery.data]);
+  const searching = searchable && searchQuery.isPending;
 
   const visible = useMemo(() => (tab === "all" ? results : results.filter((result) => result.result_type === tab)), [results, tab]);
 
@@ -76,7 +88,15 @@ function SearchContent() {
         </div>
       </div>
       <section className="mt-5 space-y-3">
-        {visible.length === 0 ? (
+        {!searchable ? (
+          <Card>
+            <p className="font-display text-base tracking-tight text-neutral-600">
+              Search across tasks, appointments, documents, notes, and the timeline.
+            </p>
+          </Card>
+        ) : searching ? (
+          <SkeletonRows rows={3} />
+        ) : visible.length === 0 ? (
           <Card>
             <p className="font-display text-base tracking-tight text-neutral-600">No results found.</p>
           </Card>
