@@ -193,7 +193,7 @@ function MedicationsContent() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
+      <div className="mt-4 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_400px]">
         <section className="min-w-0 space-y-3">
           {loading ? (
             <SkeletonRows rows={4} />
@@ -596,7 +596,7 @@ function MedicationModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Add Medication</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Name (required)">
             <Input list="common-drugs" value={name} onChange={(event) => setName(event.target.value)} />
             <datalist id="common-drugs">

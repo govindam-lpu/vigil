@@ -157,7 +157,7 @@ export function DashboardView({ profile }: DashboardViewProps) {
 
   return (
     <div className="mx-auto max-w-[1280px] p-4 sm:p-6">
-      <div className="grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)_280px]">
         <aside className="space-y-5">
           <Card>
             <CardContent className="space-y-4">

@@ -87,7 +87,7 @@ export function ExportView() {
       ) : null}
 
       {canExport ? (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <FileJson className="h-5 w-5 text-brand-600" aria-hidden="true" />
