@@ -254,7 +254,7 @@ function TasksContent() {
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <section className="min-w-0 rounded-xl border border-neutral-200 bg-white">
           <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 p-3">
             {(["all", "mine", "overdue", "unassigned", "week"] as TaskFilter[]).map((item) => (

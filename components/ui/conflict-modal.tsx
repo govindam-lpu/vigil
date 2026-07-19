@@ -60,7 +60,7 @@ export function ConflictModal({
           </div>
         ) : (
           <>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-lg border border-brand-200 bg-brand-50 p-3">
                 <p className="text-sm font-semibold text-neutral-900">Your version</p>
                 <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-700">{yourValue || "(empty)"}</p>

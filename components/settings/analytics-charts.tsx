@@ -105,7 +105,7 @@ function TasksSection({
   return (
     <section className="space-y-4">
       <SectionTitle>Tasks</SectionTitle>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title="Created vs completed by week">
           <ResponsiveContainer>
             <BarChart data={createdCompleted}>
@@ -207,7 +207,7 @@ function DocumentationSection({
   return (
     <section className="space-y-4">
       <SectionTitle>Documentation</SectionTitle>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title="Documents uploaded per month">
           <ResponsiveContainer>
             <BarChart data={uploads}>
@@ -281,7 +281,7 @@ function ActivitySection({
   return (
     <section className="space-y-4">
       <SectionTitle>Activity</SectionTitle>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartCard title="Timeline entries per member per month">
           {memberIds.length === 0 ? (
             <p className="text-sm text-neutral-500">No activity in this range.</p>

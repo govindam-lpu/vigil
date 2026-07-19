@@ -167,7 +167,7 @@ export function IntegrationsView() {
         </div>
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <CalendarPlus className="h-5 w-5 text-brand-600" aria-hidden="true" />

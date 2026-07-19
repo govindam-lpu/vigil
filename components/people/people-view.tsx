@@ -139,7 +139,7 @@ export function PeopleView() {
         </div>
       ) : null}
 
-      <div className="mt-5 grid gap-6 lg:grid-cols-2">
+      <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {person ? (
           <PersonProfileSection
             person={person}
@@ -531,7 +531,7 @@ function ContactModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">{contact ? "Edit Contact" : "Add Contact"}</h2>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Name (required)">
             <Input value={name} onChange={(event) => setName(event.target.value)} />
           </Field>
@@ -639,7 +639,7 @@ function HouseholdsSection({
           No locations yet. Add a home or facility with its address and access notes.
         </p>
       ) : (
-        <div className="grid gap-4 p-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
           {households.map((household) => (
             <div key={household.id} className="rounded-lg border border-neutral-200 p-4">
               <div className="flex items-start justify-between gap-2">

@@ -211,7 +211,7 @@ function DocumentsContent() {
         ))}
       </div>
 
-      <div className="mt-4 grid gap-5 lg:mt-5 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
+      <div className="mt-4 grid grid-cols-1 gap-5 lg:mt-5 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
         <aside className="hidden rounded-xl border border-neutral-200 bg-white p-3 lg:block">
           <div className="space-y-1 border-b border-neutral-200 pb-3">
             <SmartButton active={smartView === "expiring"} label="Expiring Soon" onClick={() => selectSmart("expiring")} />
@@ -262,7 +262,7 @@ function DocumentsContent() {
               />
             ))
           ) : (
-            <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
               {documents.map((document) => (
                 <DocumentCard
                   key={document.id}
@@ -523,7 +523,7 @@ function DocumentModal({ careCircleId, personId, folders, defaultFolderId, onClo
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-neutral-900/70 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5">
         <h2 className="text-md font-semibold text-neutral-900">Add Document</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2"><Field label="File"><Input type="file" onChange={(event) => { const selected = event.target.files?.[0] ?? null; setFile(selected); if (selected && !title) setTitle(selected.name.replace(/\.[^.]+$/, "")); }} /></Field></div>
           <Field label="Title"><Input value={title} onChange={(event) => setTitle(event.target.value)} /></Field>
           <Field label="Document type"><select className="h-10 w-full rounded-lg border border-neutral-300 bg-white px-3" value={documentType} onChange={(event) => setDocumentType(event.target.value as DocumentType)}>{["medical_record","insurance","legal","financial","identification","care_plan","correspondence","other"].map((item) => <option key={item} value={item}>{labelize(item)}</option>)}</select></Field>
